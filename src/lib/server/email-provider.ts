@@ -70,6 +70,51 @@ export function providerLabel(kind: EmailProviderKind): string {
 	}
 }
 
+/**
+ * Which service delivers *inbound* mail. `EMAIL_PROVIDER` always picks the
+ * outbound sender (and where domains are listed from); `EMAIL_INBOUND` lets
+ * inbound come from the other one, e.g. Cloudflare Email Routing in and Resend
+ * out. Unset means "same as EMAIL_PROVIDER". Returns null for an unknown value.
+ */
+export function resolveInboundKind(
+	inbound: string | undefined | null,
+	provider: string | undefined | null
+): EmailProviderKind | null {
+	const raw = (inbound?.trim() || provider?.trim() || 'resend').toLowerCase();
+	return raw === 'resend' || raw === 'cloudflare' ? raw : null;
+}
+
+/**
+ * When inbound comes from a different service than the sending provider, the
+ * provider's own "can this domain receive?" answer is about the wrong service
+ * (Resend reports receiving off for a domain that Cloudflare routes). Report
+ * receiving from the inbound side instead: for Cloudflare, a domain receives
+ * when it is listed in CLOUDFLARE_MAIL_DOMAINS.
+ */
+export function withInbound(
+	provider: EmailProvider,
+	inbound: EmailProviderKind,
+	cloudflareDomains: string | undefined | null
+): EmailProvider {
+	if (inbound === provider.kind) return provider;
+
+	const routed = new Set(parseMailDomains(cloudflareDomains));
+	const adjust = (domain: ProviderDomain): ProviderDomain =>
+		inbound === 'cloudflare'
+			? { ...domain, receivingEnabled: routed.has(domain.name.toLowerCase()) }
+			: domain;
+
+	return {
+		...provider,
+		async listDomains() {
+			return (await provider.listDomains()).map(adjust);
+		},
+		async getDomain(id: string) {
+			return adjust(await provider.getDomain(id));
+		}
+	};
+}
+
 /** IANA reserved names used as dashboard placeholders; not real mail domains. */
 const TEMPLATE_PLACEHOLDER_DOMAINS = new Set(['example.com', 'example.org', 'example.net']);
 

@@ -1,5 +1,9 @@
 import { json, text, type RequestHandler } from '@sveltejs/kit';
-import { getResendClient, getWebhookSecret } from '$lib/server/context';
+import {
+	getResendClient,
+	getWebhookSecret,
+	safeInboundProviderKind
+} from '$lib/server/context';
 import { claimWebhookEvent, handleResendWebhook, type ResendWebhookEvent } from '$lib/server/inbound';
 import { verifyWebhookSignature } from '$lib/server/webhook';
 
@@ -39,6 +43,13 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 	if (!event?.type) {
 		return json({ error: 'Missing event type' }, { status: 400 });
+	}
+
+	// Inbound is delivered by Cloudflare Email Routing (EMAIL_INBOUND=cloudflare):
+	// acknowledge Resend's receiving events without storing them, so a webhook that
+	// is still subscribed to `email.received` can never double-ingest a message.
+	if (event.type === 'email.received' && safeInboundProviderKind(platform) === 'cloudflare') {
+		return json({ ok: true, handled: false, note: 'Inbound handled by Cloudflare; ignored' });
 	}
 
 	const eventId =

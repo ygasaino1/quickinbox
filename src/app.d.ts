@@ -15,7 +15,9 @@ declare global {
 				EMAIL: CloudflareSendEmailBinding;
 				/** `resend` (default) or `cloudflare`. */
 				EMAIL_PROVIDER?: string;
-				/** Comma-separated domains when EMAIL_PROVIDER=cloudflare. */
+				/** Who delivers inbound mail (`resend` | `cloudflare`); defaults to EMAIL_PROVIDER. */
+				EMAIL_INBOUND?: string;
+				/** Comma-separated domains routed through Cloudflare (EMAIL_PROVIDER or EMAIL_INBOUND = cloudflare). */
 				CLOUDFLARE_MAIL_DOMAINS?: string;
 				/** Resend API key — `wrangler secret put RESEND_API_KEY`. */
 				RESEND_API_KEY: string;

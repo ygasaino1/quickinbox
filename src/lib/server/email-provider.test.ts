@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { MailAddress } from '$lib/types';
 import type { EmailProvider } from './email-provider';
-import { parseMailDomains } from './email-provider';
+import {
+	parseMailDomains,
+	resolveInboundKind,
+	withInbound,
+	type ProviderDomain
+} from './email-provider';
 import {
 	createCloudflareProvider,
 	type CloudflareSendPayload
@@ -196,4 +201,58 @@ test('Cloudflare sends CID SVGs inline and ordinary files as attachments', async
 		new Uint8Array(ordinaryAttachment.content as ArrayBuffer),
 		new Uint8Array(Buffer.from(ordinaryFile))
 	);
+});
+
+describe('split inbound / outbound providers', () => {
+	test('inbound follows EMAIL_PROVIDER unless EMAIL_INBOUND overrides it', () => {
+		assert.equal(resolveInboundKind(undefined, undefined), 'resend');
+		assert.equal(resolveInboundKind(undefined, 'cloudflare'), 'cloudflare');
+		assert.equal(resolveInboundKind('', 'resend'), 'resend');
+		assert.equal(resolveInboundKind('cloudflare', 'resend'), 'cloudflare');
+		assert.equal(resolveInboundKind(' Cloudflare ', 'resend'), 'cloudflare');
+		assert.equal(resolveInboundKind('resend', 'cloudflare'), 'resend');
+		assert.equal(resolveInboundKind('smtp', 'resend'), null);
+	});
+
+	const resendDomain: ProviderDomain = {
+		id: 'resend-domain-id',
+		name: 'Yours.com',
+		status: 'verified',
+		region: 'eu-west-1',
+		sendingEnabled: true,
+		receivingEnabled: false
+	};
+	const resendLike: EmailProvider = {
+		kind: 'resend',
+		async send() {
+			return { providerId: 'x' };
+		},
+		async listDomains() {
+			return [resendDomain];
+		},
+		async getDomain() {
+			return resendDomain;
+		}
+	};
+
+	test('Cloudflare inbound marks routed domains as receiving even though Resend has it off', async () => {
+		const provider = withInbound(resendLike, 'cloudflare', 'yours.com');
+		assert.equal(provider.kind, 'resend');
+		assert.equal((await provider.listDomains())[0].receivingEnabled, true);
+		assert.equal((await provider.getDomain('resend-domain-id')).receivingEnabled, true);
+		// Sending state and identity stay Resend's.
+		assert.equal((await provider.getDomain('resend-domain-id')).id, 'resend-domain-id');
+		assert.equal((await provider.getDomain('resend-domain-id')).sendingEnabled, true);
+	});
+
+	test('a domain missing from CLOUDFLARE_MAIL_DOMAINS is not reported as receiving', async () => {
+		const provider = withInbound(resendLike, 'cloudflare', 'other.com');
+		assert.equal((await provider.listDomains())[0].receivingEnabled, false);
+		const unset = withInbound(resendLike, 'cloudflare', undefined);
+		assert.equal((await unset.listDomains())[0].receivingEnabled, false);
+	});
+
+	test('matching inbound and outbound leaves the provider untouched', () => {
+		assert.equal(withInbound(resendLike, 'resend', 'yours.com'), resendLike);
+	});
 });

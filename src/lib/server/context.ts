@@ -2,7 +2,9 @@ import type { AvailableDomain } from '$lib/types';
 import {
 	parseMailDomains,
 	ProviderError,
+	resolveInboundKind,
 	toAvailableDomain,
+	withInbound,
 	type EmailProvider,
 	type EmailProviderKind
 } from './email-provider';
@@ -34,7 +36,34 @@ export function safeEmailProviderKind(platform: PlatformLike): EmailProviderKind
 	}
 }
 
+/** Who delivers inbound mail. Defaults to EMAIL_PROVIDER; see `EMAIL_INBOUND`. */
+export function getInboundProviderKind(platform: PlatformLike): EmailProviderKind {
+	const kind = resolveInboundKind(platform?.env.EMAIL_INBOUND, platform?.env.EMAIL_PROVIDER);
+	if (!kind) {
+		throw new ConfigError(
+			`Unknown EMAIL_INBOUND "${platform?.env.EMAIL_INBOUND}". Use "resend" or "cloudflare".`
+		);
+	}
+	return kind;
+}
+
+export function safeInboundProviderKind(platform: PlatformLike): EmailProviderKind {
+	try {
+		return getInboundProviderKind(platform);
+	} catch {
+		return safeEmailProviderKind(platform);
+	}
+}
+
 export function getEmailProvider(platform: PlatformLike): EmailProvider {
+	return withInbound(
+		getOutboundProvider(platform),
+		getInboundProviderKind(platform),
+		platform?.env.CLOUDFLARE_MAIL_DOMAINS
+	);
+}
+
+function getOutboundProvider(platform: PlatformLike): EmailProvider {
 	const kind = getEmailProviderKind(platform);
 
 	switch (kind) {

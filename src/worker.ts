@@ -4,6 +4,7 @@ import {
 	type CloudflareInboundEnv,
 	type CloudflareInboundMessage
 } from './lib/server/cloudflare-inbound';
+import { resolveInboundKind } from './lib/server/email-provider';
 // Renamed from `_worker.js` by `scripts/wrap-cloudflare-worker.mjs` after `vite build`.
 // @ts-expect-error file is created at build time
 import sveltekit from '../.svelte-kit/cloudflare/_sveltekit.js';
@@ -27,7 +28,9 @@ export default {
 	},
 
 	async email(message: CloudflareInboundMessage, env: Env, ctx: ExecutionContext) {
-		if (env.EMAIL_PROVIDER?.trim().toLowerCase() !== 'cloudflare') {
+		// Inbound follows EMAIL_INBOUND when set, else EMAIL_PROVIDER — so Resend
+		// can send while Cloudflare Email Routing receives.
+		if (resolveInboundKind(env.EMAIL_INBOUND, env.EMAIL_PROVIDER) !== 'cloudflare') {
 			message.setReject('Cloudflare email provider is not enabled');
 			return;
 		}

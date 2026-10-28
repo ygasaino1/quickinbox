@@ -68,6 +68,23 @@ apex MX at both.
 | Cost            | Resend free tier + Cloudflare            | Requires a **Workers paid** plan                                              |
 | Delivery events | `delivered`, `bounced`, `complained`, …  | Accepted send is stored as `sent`                                             |
 
+### Mixing providers: receive on Cloudflare, send with Resend
+
+`EMAIL_PROVIDER` chooses the **outbound** service (and where domains are listed from). Set `EMAIL_INBOUND` to choose who delivers **inbound** mail when it should differ. To send with Resend and receive through Cloudflare Email Routing:
+
+```
+"vars": {
+  "EMAIL_PROVIDER": "resend",
+  "EMAIL_INBOUND": "cloudflare",
+  "CLOUDFLARE_MAIL_DOMAINS": "yourdomain.com"
+}
+```
+
+- Follow Track A for Resend (verify the domain, `RESEND_API_KEY`, webhook) but leave **receiving off** in Resend and subscribe the webhook only to the delivery events (`email.sent`, `email.delivered`, `email.bounced`, `email.complained`, `email.delivery_delayed`, `email.failed`). An `email.received` event that still arrives is acknowledged and ignored.
+- Follow Track B step 1 (onboard Email Routing) and step 2 (catch-all → this Worker) for Cloudflare. You do not need Email Sending or the `send_email` binding.
+- A domain counts as receiving when it is listed in `CLOUDFLARE_MAIL_DOMAINS`, so the "can't receive" hint only shows for domains you have not routed through Cloudflare. If you connected a domain before setting `EMAIL_INBOUND`, call `GET /api/domains?sync=1` once (as admin) to refresh it.
+- Unset, `EMAIL_INBOUND` follows `EMAIL_PROVIDER`, so existing installs behave exactly as before.
+
 Pick Resend if your DNS lives elsewhere or you already use it. Pick Cloudflare
 Email if the zone is already on Cloudflare and you want everything on one account.
 

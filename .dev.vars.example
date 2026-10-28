@@ -7,6 +7,11 @@
 # uncomment here only to override locally.
 # EMAIL_PROVIDER=resend
 
+# Optional: who delivers inbound mail when it differs from EMAIL_PROVIDER.
+# EMAIL_PROVIDER=resend + EMAIL_INBOUND=cloudflare = send with Resend, receive
+# with Cloudflare Email Routing (list the domains in CLOUDFLARE_MAIL_DOMAINS).
+# EMAIL_INBOUND=cloudflare
+
 # --- Resend (EMAIL_PROVIDER=resend) ---
 # From https://resend.com/api-keys — needs full access (send + domains + receiving).
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

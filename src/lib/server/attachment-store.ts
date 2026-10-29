@@ -73,14 +73,34 @@ function createMissingBucket(): AttachmentBucket {
 }
 
 /**
- * The bound R2 bucket if there is one, otherwise the ATTACHMENTS_DB database.
+ * R2 for new files, with the D1 store kept as a read-through fallback so files
+ * saved before R2 was enabled stay readable. Deletes hit both.
+ */
+function createHybridBucket(r2: R2Bucket, legacy: AttachmentBucket): AttachmentBucket {
+	return {
+		put: (key, value, options) =>
+			r2.put(key, value as ArrayBuffer, options as never) as Promise<unknown>,
+		async get(key) {
+			return (await r2.get(key)) ?? (await legacy.get(key));
+		},
+		async delete(keys) {
+			await Promise.all([r2.delete(keys), legacy.delete(keys)]);
+		}
+	};
+}
+
+/**
+ * R2 when `ATTACHMENTS` is bound (falling back to ATTACHMENTS_DB for older files
+ * if that is bound too), otherwise the ATTACHMENTS_DB database alone.
  * Typed as R2Bucket so existing call sites keep working unchanged.
  */
 export function resolveAttachmentBucket(env: {
 	ATTACHMENTS?: R2Bucket;
 	ATTACHMENTS_DB?: D1Database;
 }): R2Bucket {
-	if (env.ATTACHMENTS) return env.ATTACHMENTS;
-	const bucket = env.ATTACHMENTS_DB ? createD1AttachmentBucket(env.ATTACHMENTS_DB) : createMissingBucket();
-	return bucket as unknown as R2Bucket;
+	const d1 = env.ATTACHMENTS_DB ? createD1AttachmentBucket(env.ATTACHMENTS_DB) : null;
+	if (env.ATTACHMENTS) {
+		return (d1 ? createHybridBucket(env.ATTACHMENTS, d1) : env.ATTACHMENTS) as unknown as R2Bucket;
+	}
+	return (d1 ?? createMissingBucket()) as unknown as R2Bucket;
 }

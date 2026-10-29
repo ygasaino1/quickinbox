@@ -572,6 +572,6 @@ Attachments are kept in a **second D1 database** (`ATTACHMENTS_DB`, default name
 
 Trade-offs: each D1 database is capped at 500 MB on the free plan (10 GB paid), and Cloudflare's free plan allows 5 GB across the account. Attachments fill their own database, so they can't push your mail database over its cap. The per-file limit stays 5 MB and 5 files per email.
 
-**Using R2 instead (optional):** enable R2, create a bucket, and uncomment the `r2_buckets` block in `wrangler.jsonc`. When `ATTACHMENTS` (R2) is bound it is used and `ATTACHMENTS_DB` is ignored. Files already stored in D1 are not copied to R2, so they become unreadable after switching. **Already using R2?** Keep your `r2_buckets` block when pulling this update, or your existing attachments will stop loading.
+**Using R2 instead (optional):** enable R2, create a bucket, and uncomment the `r2_buckets` block in `wrangler.jsonc`. Keep the `ATTACHMENTS_DB` binding too: new files go to R2, while files saved earlier stay readable from D1 (R2 is checked first, then D1). Deleting a message removes its files from both. You can switch at any time without migrating. **Already using R2?** Keep your `r2_buckets` block when pulling this update, or your existing attachments will stop loading.
 
 If neither is bound, sending or receiving an attachment fails with an explicit error rather than silently dropping the file.

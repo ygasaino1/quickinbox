@@ -42,12 +42,43 @@ describe('D1 attachment bucket', () => {
 	test('resolve prefers a bound R2 bucket, else D1', () => {
 		const { db } = createTestDb(ATTACHMENTS_MIGRATIONS_DIR);
 		const r2 = {} as never;
-		expect(resolveAttachmentBucket({ ATTACHMENTS: r2, ATTACHMENTS_DB: db })).toBe(r2);
+		expect(resolveAttachmentBucket({ ATTACHMENTS: r2 })).toBe(r2);
 		expect(typeof resolveAttachmentBucket({ ATTACHMENTS_DB: db }).put).toBe('function');
 	});
 
 	test('with nothing bound it fails loudly instead of dropping files', async () => {
 		const bucket = resolveAttachmentBucket({});
 		await expect(bucket.put('k', new Uint8Array([1]))).rejects.toThrow('No attachment storage configured');
+	});
+
+	test('with R2 and D1 both bound: new files go to R2, old D1 files stay readable, delete hits both', async () => {
+		const { db } = createTestDb(ATTACHMENTS_MIGRATIONS_DIR);
+		const legacy = createD1AttachmentBucket(db);
+		await legacy.put('old', Uint8Array.from([1, 2, 3]));
+
+		const store = new Map<string, Uint8Array>();
+		const r2 = {
+			async put(key: string, value: Uint8Array) {
+				store.set(key, value);
+			},
+			async get(key: string) {
+				const v = store.get(key);
+				return v ? { arrayBuffer: async () => v.buffer as ArrayBuffer } : null;
+			},
+			async delete(keys: string | string[]) {
+				for (const k of Array.isArray(keys) ? keys : [keys]) store.delete(k);
+			}
+		};
+		const bucket = resolveAttachmentBucket({ ATTACHMENTS: r2 as never, ATTACHMENTS_DB: db });
+
+		await bucket.put('new', Uint8Array.from([9, 9]) as never);
+		expect(store.has('new')).toBe(true);
+		expect(await legacy.get('new')).toBeNull();
+		expect(new Uint8Array(await (await bucket.get('old'))!.arrayBuffer())).toEqual(Uint8Array.from([1, 2, 3]));
+		expect(new Uint8Array(await (await bucket.get('new'))!.arrayBuffer())).toEqual(Uint8Array.from([9, 9]));
+
+		await bucket.delete(['old', 'new']);
+		expect(await legacy.get('old')).toBeNull();
+		expect(store.size).toBe(0);
 	});
 });

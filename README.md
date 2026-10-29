@@ -168,7 +168,7 @@ Then follow **exactly one** provider track below.
    ```
 
    In [Resend → Webhooks](https://resend.com/webhooks) add a webhook pointing to
-   `https://<your-worker-url>/api/webhooks/resend` with the events
+   `https://quickmail.your-subdomain.workers.dev/api/webhooks/resend` (your Worker's address plus `/api/webhooks/resend`; use `https://mail.yourdomain.com/api/webhooks/resend` if you serve it from your own domain; the address is under Workers & Pages → your Worker) with the events
    `email.received`, `email.sent`, `email.delivered`, `email.bounced`,
    `email.complained`, `email.delivery_delayed`, `email.failed`.
 

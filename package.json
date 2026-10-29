@@ -65,19 +65,19 @@
 				"description": "R2 bucket for inbound and outbound attachments."
 			},
 			"EMAIL_INBOUND": {
-				"description": "Who delivers incoming mail: `resend`, `cloudflare` (Email Routing; needs Cloudflare DNS), or `none` to turn receiving off."
+				"description": "Who delivers **incoming** mail. Type exactly one of: `cloudflare` (Email Routing; your domain's DNS must be on Cloudflare), `resend` (Resend receiving), or `none` (receiving off). Typical setup: `cloudflare`."
 			},
 			"EMAIL_OUTBOUND": {
-				"description": "Who sends mail: `resend`, `cloudflare` (Email Sending; needs a Workers paid plan), or `none` to turn sending off."
+				"description": "Who **sends** mail. Type exactly one of: `resend`, `cloudflare` (Email Sending; needs a Workers paid plan), or `none` (sending off). Typical setup: `resend`."
 			},
 			"CLOUDFLARE_MAIL_DOMAINS": {
-				"description": "Keep `example.com` unless Cloudflare is used in either direction. Then replace with your domain onboarded in [Email Service](https://developers.cloudflare.com/email-service/) (comma-separated, e.g. `yourdomain.com`)."
+				"description": "Your domain(s), comma-separated, e.g. `yourdomain.com`. Needed whenever `EMAIL_INBOUND` or `EMAIL_OUTBOUND` is `cloudflare`. Keep `example.com` only if neither is."
 			},
 			"RESEND_API_KEY": {
-				"description": "Only when `EMAIL_INBOUND` or `EMAIL_OUTBOUND` is `resend`: full-access key from [Resend API keys](https://resend.com/api-keys). Keep the placeholder if Resend is not used."
+				"description": "Needed when `EMAIL_INBOUND` or `EMAIL_OUTBOUND` is `resend`: create a full-access key at [Resend API keys](https://resend.com/api-keys) and paste it here. Not using Resend? Leave the placeholder."
 			},
 			"RESEND_WEBHOOK_SECRET": {
-				"description": "Only when `EMAIL_INBOUND` or `EMAIL_OUTBOUND` is `resend`: shown once when you create the webhook at [Resend webhooks](https://resend.com/webhooks). Keep the placeholder if Resend is not used."
+				"description": "**You don't have this yet — enter any placeholder, e.g. `whsec_placeholder`, and deploy.** After deploying, create the webhook at [Resend webhooks](https://resend.com/webhooks) with URL `https://YOUR-WORKER-ADDRESS/api/webhooks/resend` and only the delivery events (not `email.received`), copy the signing secret it shows once, then replace this secret under your Worker → Settings → Variables and Secrets. Only needed if you use Resend."
 			},
 			"TYPESAFE_API_KEY": {
 				"description": "Optional. TypeSafe key for inbox tabs (Primary, Social, Promotions, Updates, Forums) and spam. Keep the placeholder to skip — mail stays in Primary."

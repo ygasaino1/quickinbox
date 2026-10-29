@@ -20,7 +20,7 @@ no servers to maintain.
 
 - **Real mail in and out** — the provider delivers straight into the Worker, nothing is polled
 - **Threads** — replies group into conversations, quoted history collapses; conversations never mix messages from different domains
-- **Attachments** — inbound files land in R2, outbound files upload from the composer
+- **Attachments** — stored in D1 by default (no R2, no payment card needed); outbound files upload from the composer. R2 is an optional upgrade, see [Attachment storage](#attachment-storage)
 - **Safe HTML** — received HTML renders in a sandboxed iframe
 - **Multiple domains and users** — per-user addresses, admin catch-all, unrouted-mail view; the combined inbox tags each conversation with the address it arrived on and can filter by it
 - **Delivery status** — delivered / bounced / complained tracking
@@ -47,7 +47,7 @@ run this once against that Worker, then reload:
 npx wrangler d1 migrations apply DB --remote
 ```
 
-The wizard creates the D1 database and R2 bucket, writes config, and onboards
+The wizard creates the D1 database, writes config, and onboards
 your domain. Budget about 30 minutes — most of that is waiting on DNS.
 
 The Deploy to Cloudflare form includes an optional `TYPESAFE_API_KEY` for inbox
@@ -130,11 +130,10 @@ bunx wrangler login
 Cloudflare Email Sending needs **Wrangler 4.123+** (older versions hit a
 removed API path and 404).
 
-### 2. Create D1 and R2
+### 2. Create D1
 
 ```bash
 bunx wrangler d1 create quickmail
-bunx wrangler r2 bucket create quickmail-attachments
 ```
 
 Copy the printed `database_id` into `wrangler.jsonc` (replacing
@@ -557,7 +556,7 @@ migrations/          D1 schema, applied in order
 | Mail never arrives (Cloudflare) | Apex MX must be Cloudflare Routing, catch-all must target this Worker, `EMAIL_INBOUND=cloudflare`, Worker must be deployed |
 | Webhook 401 | `RESEND_WEBHOOK_SECRET` mismatch — secrets are shown once; recreate the webhook |
 | Webhook 500 | `bunx wrangler tail` |
-| Attachments missing | R2 bucket must exist and match `bucket_name` in `wrangler.jsonc` |
+| Attachments missing | Run the latest migrations (`attachment_chunks` table). If you enabled R2, the bucket must exist and match `bucket_name` in `wrangler.jsonc` |
 | `database_id` errors on deploy | Paste the id from `wrangler d1 create` into `wrangler.jsonc` |
 | Setup shows no Cloudflare domains | Set `CLOUDFLARE_MAIL_DOMAINS` and `EMAIL_OUTBOUND` (or `EMAIL_INBOUND`) to `cloudflare`, restart the dev server |
 
@@ -565,3 +564,9 @@ migrations/          D1 schema, applied in order
 
 [MIT](LICENSE.md) — use it, modify it, ship it, commercially or not.
 Copyright © 2026 Irasubiza Divin Prince.
+
+## Attachment storage
+
+This fork stores attachments in **D1** unless you bind an R2 bucket, because Cloudflare asks for a payment card to enable R2. Nothing to configure: with no `ATTACHMENTS` binding, bytes are kept in the `attachment_chunks` table (split into ~900 KB rows, since D1 caps a row at 2 MB).
+
+Trade-offs: D1 is limited to 500 MB per database on the free plan (10 GB paid), and attachments share that space with your mail. The per-file limit stays 5 MB and 5 files per email. If you outgrow it, enable R2, create a bucket, and uncomment the `r2_buckets` block in `wrangler.jsonc`. New attachments go to R2. Files already stored in D1 are not copied over, so switching later leaves them unreadable. **Already using R2?** Keep the `r2_buckets` block in your `wrangler.jsonc` when pulling this update, or your existing attachments will stop loading.

@@ -2,7 +2,7 @@
 /**
  * Interactive first-run setup for Quickinbox.
  *
- * Installs tools, logs into Cloudflare, creates D1/R2, writes env and
+ * Installs tools, logs into Cloudflare, creates D1, writes env and
  * wrangler config, and onboards a mail domain (Resend or Cloudflare Email).
  *
  * Usage:
@@ -60,7 +60,7 @@ let rl = null;
 function printHelp() {
 	console.log(`Quickinbox setup
 
-Installs tools, logs you into Cloudflare, creates D1/R2, writes env and
+Installs tools, logs you into Cloudflare, creates D1, writes env and
 wrangler config, and onboards your mail domain.
 
   bun run setup
@@ -71,7 +71,7 @@ Options:
   --domain <name>      Mail domain (e.g. example.com)
   --provider <name>    resend | cloudflare
   --d1-name <name>     D1 database name (e.g. quickmail)
-  --r2-name <name>     R2 bucket name (e.g. quickmail-attachments)
+  --r2-name <name>     (ignored; attachments are stored in D1 unless you add R2 yourself)
   --typesafe-api-key <key>
                        Optional TypeSafe key for inbox tabs and spam
   --yes                Accept defaults (still requires --domain)
@@ -1142,7 +1142,7 @@ async function main() {
 	const hostname = await askHostname(domain);
 	if (hostname) ok(`UI hostname ${hostname}`);
 
-	section(4, total, 'D1 and R2');
+	section(4, total, 'D1 database');
 	const databaseName = await askResourceName(
 		'D1 database name (e.g. quickmail)',
 		jsoncString(source, 'database_name') || 'quickmail',
@@ -1150,24 +1150,14 @@ async function main() {
 		isWorkerName,
 		'Use lowercase letters, numbers, and hyphens.'
 	);
-	const bucketName = await askResourceName(
-		'R2 bucket name (e.g. quickmail-attachments)',
-		jsoncString(source, 'bucket_name') || 'quickmail-attachments',
-		args.r2Name,
-		isR2BucketName,
-		'3–63 characters, lowercase letters, numbers, and hyphens.'
-	);
 	ok(`D1 ${databaseName}`);
-	ok(`R2 ${bucketName}`);
 	const databaseId = await ensureD1(databaseName);
-	ensureR2(bucketName);
 
 	section(5, total, 'Config');
 	source = readWrangler();
 	source = setFirstString(source, 'name', workerName);
 	source = setFirstString(source, 'database_name', databaseName);
 	source = setFirstString(source, 'database_id', databaseId);
-	source = setFirstString(source, 'bucket_name', bucketName);
 	source = setVars(source, {
 		provider,
 		domains: provider === 'cloudflare' ? domain : ''

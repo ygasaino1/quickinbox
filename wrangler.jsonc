@@ -72,13 +72,12 @@
 		}
 	],
 
-	"r2_buckets": [
-		{
-			"binding": "ATTACHMENTS",
-			// `bun run setup` creates this, or: wrangler r2 bucket create <name>
-			"bucket_name": "quickmail-attachments"
-		}
-	],
+	// Attachments are stored in D1 by default, so no R2 bucket (and no payment
+	// card) is needed. To keep large attachments in R2 instead, enable R2 on your
+	// Cloudflare account, create a bucket, and uncomment:
+	// "r2_buckets": [
+	//   { "binding": "ATTACHMENTS", "bucket_name": "quickmail-attachments" }
+	// ],
 
 	"observability": {
 		"enabled": true

@@ -61,9 +61,6 @@
 			"DB": {
 				"description": "D1 database for mail, users, and threads."
 			},
-			"ATTACHMENTS": {
-				"description": "R2 bucket for inbound and outbound attachments."
-			},
 			"EMAIL_INBOUND": {
 				"description": "Who delivers **incoming** mail. Type exactly one of: `cloudflare` (Email Routing; your domain's DNS must be on Cloudflare), `resend` (Resend receiving), or `none` (receiving off). Typical setup: `cloudflare`."
 			},

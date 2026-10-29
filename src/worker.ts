@@ -4,6 +4,7 @@ import {
 	type CloudflareInboundEnv,
 	type CloudflareInboundMessage
 } from './lib/server/cloudflare-inbound';
+import { resolveAttachmentBucket } from './lib/server/attachment-store';
 import { parseProviderKind } from './lib/server/email-provider';
 // Renamed from `_worker.js` by `scripts/wrap-cloudflare-worker.mjs` after `vite build`.
 // @ts-expect-error file is created at build time
@@ -37,7 +38,7 @@ export default {
 
 		const inboundEnv: CloudflareInboundEnv = {
 			DB: env.DB,
-			ATTACHMENTS: env.ATTACHMENTS,
+			ATTACHMENTS: resolveAttachmentBucket(env),
 			VAPID_PUBLIC_KEY: env.VAPID_PUBLIC_KEY,
 			VAPID_PRIVATE_KEY: env.VAPID_PRIVATE_KEY,
 			VAPID_SUBJECT: env.VAPID_SUBJECT,

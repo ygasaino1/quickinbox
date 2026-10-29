@@ -62,7 +62,7 @@
 				"description": "D1 database for mail, users, and threads."
 			},
 			"ATTACHMENTS": {
-				"description": "R2 bucket for inbound and outbound attachments."
+				"description": "R2 bucket for attachments. Needs a payment card on your Cloudflare account; if you have none, remove this binding and attachments are stored in D1 instead."
 			},
 			"EMAIL_PROVIDER": {
 				"description": "Mail provider: `resend` (default, any DNS host) or `cloudflare` (requires Cloudflare DNS + Workers paid plan)."

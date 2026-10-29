@@ -8,7 +8,10 @@ import { claimWebhookEvent, handleResendWebhook, type ResendWebhookEvent } from 
 import { verifyWebhookSignature } from '$lib/server/webhook';
 
 /**
- * Resend webhook receiver — used when EMAIL_PROVIDER=resend.
+ * Resend webhook receiver — used when EMAIL_INBOUND or EMAIL_OUTBOUND is resend.
+ *
+ * Delivery events (sent/delivered/bounced/…) update outbound status. The
+ * `email.received` event is only acted on when EMAIL_INBOUND=resend.
  *
  * Point a webhook at https://<your-app>/api/webhooks/resend in the Resend
  * dashboard and subscribe to `email.received` plus the delivery events.
@@ -45,11 +48,11 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		return json({ error: 'Missing event type' }, { status: 400 });
 	}
 
-	// Inbound is delivered by Cloudflare Email Routing (EMAIL_INBOUND=cloudflare):
-	// acknowledge Resend's receiving events without storing them, so a webhook that
-	// is still subscribed to `email.received` can never double-ingest a message.
-	if (event.type === 'email.received' && safeInboundProviderKind(platform) === 'cloudflare') {
-		return json({ ok: true, handled: false, note: 'Inbound handled by Cloudflare; ignored' });
+	// Resend only ingests mail when EMAIL_INBOUND=resend. Otherwise acknowledge
+	// `email.received` without storing it, so a webhook that is still subscribed
+	// to it can never double-ingest or ingest unexpectedly.
+	if (event.type === 'email.received' && safeInboundProviderKind(platform) !== 'resend') {
+		return json({ ok: true, handled: false, note: 'Resend inbound is off (EMAIL_INBOUND); ignored' });
 	}
 
 	const eventId =

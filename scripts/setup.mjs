@@ -373,7 +373,7 @@ function setFirstString(source, key, value) {
 }
 
 function setVars(source, { provider, domains }) {
-	const lines = [`\t\t"EMAIL_PROVIDER": "${provider}"`];
+	const lines = [`\t\t"EMAIL_INBOUND": "${provider}"`, `\t\t"EMAIL_OUTBOUND": "${provider}"`];
 	if (provider === 'cloudflare' && domains) {
 		lines.push(`\t\t"CLOUDFLARE_MAIL_DOMAINS": "${domains}"`);
 	} else {
@@ -1184,7 +1184,8 @@ async function main() {
 	if (databaseName !== 'quickmail') ok(`updated package.json migrate scripts for ${databaseName}`);
 
 	const devVars = {
-		EMAIL_PROVIDER: provider
+		EMAIL_INBOUND: provider,
+		EMAIL_OUTBOUND: provider
 	};
 	if (provider === 'cloudflare') {
 		devVars.CLOUDFLARE_MAIL_DOMAINS = domain;

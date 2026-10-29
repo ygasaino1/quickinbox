@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	}
 
 	const providerKind = safeEmailProviderKind(platform);
-	const inboundKind = safeInboundProviderKind(platform);
+	const inboundKind = safeInboundProviderKind(platform) ?? providerKind;
 	const db = platform?.env.DB;
 	if (!db) {
 		return {

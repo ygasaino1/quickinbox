@@ -8,8 +8,9 @@ declare global {
 		ATTACHMENTS: R2Bucket;
 		ASSETS: Fetcher;
 		EMAIL: CloudflareSendEmailBinding;
-		EMAIL_PROVIDER?: string;
 		EMAIL_INBOUND?: string;
+		EMAIL_OUTBOUND?: string;
+		EMAIL_PROVIDER?: string;
 		CLOUDFLARE_MAIL_DOMAINS?: string;
 		RESEND_API_KEY: string;
 		RESEND_WEBHOOK_SECRET: string;

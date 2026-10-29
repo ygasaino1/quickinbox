@@ -64,17 +64,20 @@
 			"ATTACHMENTS": {
 				"description": "R2 bucket for inbound and outbound attachments."
 			},
-			"EMAIL_PROVIDER": {
-				"description": "Mail provider: `resend` (default, any DNS host) or `cloudflare` (requires Cloudflare DNS + Workers paid plan)."
+			"EMAIL_INBOUND": {
+				"description": "Who delivers incoming mail: `resend`, `cloudflare` (Email Routing; needs Cloudflare DNS), or `none` to turn receiving off."
+			},
+			"EMAIL_OUTBOUND": {
+				"description": "Who sends mail: `resend`, `cloudflare` (Email Sending; needs a Workers paid plan), or `none` to turn sending off."
 			},
 			"CLOUDFLARE_MAIL_DOMAINS": {
-				"description": "Keep `example.com` for Resend. For `EMAIL_PROVIDER=cloudflare`, replace with your domain onboarded in [Email Service](https://developers.cloudflare.com/email-service/) (comma-separated, e.g. `yourdomain.com`)."
+				"description": "Keep `example.com` unless Cloudflare is used in either direction. Then replace with your domain onboarded in [Email Service](https://developers.cloudflare.com/email-service/) (comma-separated, e.g. `yourdomain.com`)."
 			},
 			"RESEND_API_KEY": {
-				"description": "Only for `EMAIL_PROVIDER=resend`: full-access key from [Resend API keys](https://resend.com/api-keys). Keep the placeholder if using Cloudflare Email."
+				"description": "Only when `EMAIL_INBOUND` or `EMAIL_OUTBOUND` is `resend`: full-access key from [Resend API keys](https://resend.com/api-keys). Keep the placeholder if Resend is not used."
 			},
 			"RESEND_WEBHOOK_SECRET": {
-				"description": "Only for `EMAIL_PROVIDER=resend`: shown once when you create the webhook at [Resend webhooks](https://resend.com/webhooks). Keep the placeholder if using Cloudflare Email."
+				"description": "Only when `EMAIL_INBOUND` or `EMAIL_OUTBOUND` is `resend`: shown once when you create the webhook at [Resend webhooks](https://resend.com/webhooks). Keep the placeholder if Resend is not used."
 			},
 			"TYPESAFE_API_KEY": {
 				"description": "Optional. TypeSafe key for inbox tabs (Primary, Social, Promotions, Updates, Forums) and spam. Keep the placeholder to skip — mail stays in Primary."

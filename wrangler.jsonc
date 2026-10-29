@@ -27,23 +27,24 @@
 	},
 
 	// Prefer `bun run setup` (or `bash scripts/setup.sh`) over editing this by hand.
-	// Mail provider is selected by EMAIL_PROVIDER (resend | cloudflare).
-	// Optional: EMAIL_INBOUND ("resend" | "cloudflare") picks who delivers *inbound*
-	// mail when it differs from EMAIL_PROVIDER, e.g. EMAIL_PROVIDER=resend (send)
-	// with EMAIL_INBOUND=cloudflare (Email Routing receives). Unset = same as
-	// EMAIL_PROVIDER. Add the routed domains to CLOUDFLARE_MAIL_DOMAINS.
-	// Resend secrets (when EMAIL_PROVIDER=resend or unset):
+	// Each direction is configured on its own — nothing is inferred:
+	//   EMAIL_INBOUND  = who delivers incoming mail  (resend | cloudflare | none)
+	//   EMAIL_OUTBOUND = who sends mail              (resend | cloudflare | none)
+	// Empty or "none" turns that direction off (no receiving / no sending).
+	// The Deploy button needs non-empty values, so use "none" there.
+	// Mixed example — Resend sends, Cloudflare Email Routing receives:
+	//   "EMAIL_INBOUND": "cloudflare", "EMAIL_OUTBOUND": "resend"
+	// Resend secrets (when either direction is resend):
 	//   wrangler secret put RESEND_API_KEY
 	//   wrangler secret put RESEND_WEBHOOK_SECRET
-	// Optional inbox tabs (TypeSafe):
-	//   wrangler secret put TYPESAFE_API_KEY
-	// Cloudflare Email uses the send_email binding below plus CLOUDFLARE_MAIL_DOMAINS.
+	// Cloudflare needs CLOUDFLARE_MAIL_DOMAINS (and the send_email binding below
+	// when EMAIL_OUTBOUND=cloudflare).
 	// Locally, put values in .dev.vars (copy .dev.vars.example).
-
 	"vars": {
-		"EMAIL_PROVIDER": "resend",
-		// Dashboard form requires a non-empty value. Keep example.com for
-		// Resend; replace with your domain when EMAIL_PROVIDER=cloudflare.
+		"EMAIL_INBOUND": "resend",
+		"EMAIL_OUTBOUND": "resend",
+		// Dashboard form requires a non-empty value. Keep example.com unless
+		// Cloudflare is used in either direction; then use your domain.
 		"CLOUDFLARE_MAIL_DOMAINS": "example.com"
 	},
 

@@ -71,38 +71,42 @@ export function providerLabel(kind: EmailProviderKind): string {
 }
 
 /**
- * Which service delivers *inbound* mail. `EMAIL_PROVIDER` always picks the
- * outbound sender (and where domains are listed from); `EMAIL_INBOUND` lets
- * inbound come from the other one, e.g. Cloudflare Email Routing in and Resend
- * out. Unset means "same as EMAIL_PROVIDER". Returns null for an unknown value.
+ * Reads EMAIL_INBOUND / EMAIL_OUTBOUND. Each setting names one service and
+ * nothing is inferred from the other: empty (or `none` / `off`) switches that
+ * direction off. `valid: false` means the value is not a known service.
  */
-export function resolveInboundKind(
-	inbound: string | undefined | null,
-	provider: string | undefined | null
-): EmailProviderKind | null {
-	const raw = (inbound?.trim() || provider?.trim() || 'resend').toLowerCase();
-	return raw === 'resend' || raw === 'cloudflare' ? raw : null;
+export function parseProviderKind(value: string | undefined | null): {
+	kind: EmailProviderKind | null;
+	valid: boolean;
+} {
+	const raw = value?.trim().toLowerCase() ?? '';
+	if (raw === '' || raw === 'none' || raw === 'off') return { kind: null, valid: true };
+	if (raw === 'resend' || raw === 'cloudflare') return { kind: raw, valid: true };
+	return { kind: null, valid: false };
 }
 
 /**
- * When inbound comes from a different service than the sending provider, the
- * provider's own "can this domain receive?" answer is about the wrong service
- * (Resend reports receiving off for a domain that Cloudflare routes). Report
- * receiving from the inbound side instead: for Cloudflare, a domain receives
- * when it is listed in CLOUDFLARE_MAIL_DOMAINS.
+ * Whether a domain can *receive* depends on who delivers inbound mail, which
+ * need not be the service that lists the domain (Resend reports receiving off
+ * for a domain that Cloudflare routes). For Cloudflare inbound a domain
+ * receives when it is listed in CLOUDFLARE_MAIL_DOMAINS; with inbound off
+ * nothing receives.
  */
 export function withInbound(
 	provider: EmailProvider,
-	inbound: EmailProviderKind,
+	inbound: EmailProviderKind | null,
 	cloudflareDomains: string | undefined | null
 ): EmailProvider {
 	if (inbound === provider.kind) return provider;
+	// Inbound by the other service than the lister: only Cloudflare's side can
+	// be answered locally, so Resend inbound keeps the lister's own answer.
+	if (inbound === 'resend') return provider;
 
 	const routed = new Set(parseMailDomains(cloudflareDomains));
-	const adjust = (domain: ProviderDomain): ProviderDomain =>
-		inbound === 'cloudflare'
-			? { ...domain, receivingEnabled: routed.has(domain.name.toLowerCase()) }
-			: domain;
+	const adjust = (domain: ProviderDomain): ProviderDomain => ({
+		...domain,
+		receivingEnabled: inbound === 'cloudflare' && routed.has(domain.name.toLowerCase())
+	});
 
 	return {
 		...provider,
@@ -111,6 +115,26 @@ export function withInbound(
 		},
 		async getDomain(id: string) {
 			return adjust(await provider.getDomain(id));
+		}
+	};
+}
+
+/** Lists domains but cannot send — used when EMAIL_OUTBOUND is off. */
+export function withoutSending(provider: EmailProvider): EmailProvider {
+	return {
+		...provider,
+		async send() {
+			throw new ProviderError(
+				503,
+				'sending_disabled',
+				'Sending is turned off: EMAIL_OUTBOUND is empty. Set it to "resend" or "cloudflare" to send mail.'
+			);
+		},
+		async listDomains() {
+			return (await provider.listDomains()).map((domain) => ({ ...domain, sendingEnabled: false }));
+		},
+		async getDomain(id: string) {
+			return { ...(await provider.getDomain(id)), sendingEnabled: false };
 		}
 	};
 }

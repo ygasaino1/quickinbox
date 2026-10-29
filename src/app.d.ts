@@ -13,11 +13,13 @@ declare global {
 				ATTACHMENTS: R2Bucket;
 				ASSETS: Fetcher;
 				EMAIL: CloudflareSendEmailBinding;
-				/** `resend` (default) or `cloudflare`. */
-				EMAIL_PROVIDER?: string;
-				/** Who delivers inbound mail (`resend` | `cloudflare`); defaults to EMAIL_PROVIDER. */
+				/** Who delivers inbound mail: `resend`, `cloudflare`, or empty/`none` for off. */
 				EMAIL_INBOUND?: string;
-				/** Comma-separated domains routed through Cloudflare (EMAIL_PROVIDER or EMAIL_INBOUND = cloudflare). */
+				/** Who sends mail: `resend`, `cloudflare`, or empty/`none` for off. */
+				EMAIL_OUTBOUND?: string;
+				/** Removed setting, only read to explain the migration in an error. */
+				EMAIL_PROVIDER?: string;
+				/** Comma-separated domains routed through Cloudflare (when EMAIL_INBOUND or EMAIL_OUTBOUND is cloudflare). */
 				CLOUDFLARE_MAIL_DOMAINS?: string;
 				/** Resend API key — `wrangler secret put RESEND_API_KEY`. */
 				RESEND_API_KEY: string;

@@ -56,9 +56,20 @@ If you already deployed from this repo, pulling updates only changes the product
 
 ## Choosing a mail provider
 
-One provider is active per deploy, selected by `EMAIL_PROVIDER` (`resend` is
-the default, `cloudflare` is the alternative). Do not point the same domain's
-apex MX at both.
+Receiving and sending are configured separately, with nothing inferred from one
+to the other:
+
+| Variable         | Controls                  | Values                          |
+| ---------------- | ------------------------- | ------------------------------- |
+| `EMAIL_INBOUND`  | who delivers incoming mail | `resend`, `cloudflare`, `none`  |
+| `EMAIL_OUTBOUND` | who sends mail             | `resend`, `cloudflare`, `none`  |
+
+Empty or `none` turns that direction off: with `EMAIL_OUTBOUND` empty the app
+cannot send (sends fail with a clear error and domains show as not sendable);
+with `EMAIL_INBOUND` empty nothing is received (Cloudflare Email Routing mail is
+rejected and Resend's `email.received` events are ignored). The Deploy button
+needs non-empty values, so use `none` there. Do not point the same domain's apex
+MX at both services.
 
 |                 | [Resend](https://resend.com)             | [Cloudflare Email Service](https://developers.cloudflare.com/email-service/) |
 | --------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
@@ -68,22 +79,30 @@ apex MX at both.
 | Cost            | Resend free tier + Cloudflare            | Requires a **Workers paid** plan                                              |
 | Delivery events | `delivered`, `bounced`, `complained`, …  | Accepted send is stored as `sent`                                             |
 
+Domains are listed and connected through the outbound service when sending is
+on (a domain is only usable once that service has verified it), otherwise
+through the inbound one. A domain counts as receiving when the **inbound**
+service handles it: with `EMAIL_INBOUND=cloudflare`, when it is listed in
+`CLOUDFLARE_MAIL_DOMAINS`.
+
+> **Upgrading:** `EMAIL_PROVIDER` is no longer read. Set `EMAIL_INBOUND` and
+> `EMAIL_OUTBOUND` to the value it had (for example both `resend`). The app
+> says so in its error messages if `EMAIL_PROVIDER` is still set and the new
+> variables are not.
+
 ### Mixing providers: receive on Cloudflare, send with Resend
 
-`EMAIL_PROVIDER` chooses the **outbound** service (and where domains are listed from). Set `EMAIL_INBOUND` to choose who delivers **inbound** mail when it should differ. To send with Resend and receive through Cloudflare Email Routing:
-
-```
+```jsonc
 "vars": {
-  "EMAIL_PROVIDER": "resend",
   "EMAIL_INBOUND": "cloudflare",
+  "EMAIL_OUTBOUND": "resend",
   "CLOUDFLARE_MAIL_DOMAINS": "yourdomain.com"
 }
 ```
 
 - Follow Track A for Resend (verify the domain, `RESEND_API_KEY`, webhook) but leave **receiving off** in Resend and subscribe the webhook only to the delivery events (`email.sent`, `email.delivered`, `email.bounced`, `email.complained`, `email.delivery_delayed`, `email.failed`). An `email.received` event that still arrives is acknowledged and ignored.
 - Follow Track B step 1 (onboard Email Routing) and step 2 (catch-all → this Worker) for Cloudflare. You do not need Email Sending or the `send_email` binding.
-- A domain counts as receiving when it is listed in `CLOUDFLARE_MAIL_DOMAINS`, so the "can't receive" hint only shows for domains you have not routed through Cloudflare. If you connected a domain before setting `EMAIL_INBOUND`, call `GET /api/domains?sync=1` once (as admin) to refresh it.
-- Unset, `EMAIL_INBOUND` follows `EMAIL_PROVIDER`, so existing installs behave exactly as before.
+- If you connected a domain before changing these settings, call `GET /api/domains?sync=1` once (as admin) to refresh its flags.
 
 Pick Resend if your DNS lives elsewhere or you already use it. Pick Cloudflare
 Email if the zone is already on Cloudflare and you want everything on one account.
@@ -178,7 +197,8 @@ The zone must use **Cloudflare DNS**.
 
    ```jsonc
    "vars": {
-     "EMAIL_PROVIDER": "cloudflare",
+     "EMAIL_INBOUND": "cloudflare",
+     "EMAIL_OUTBOUND": "cloudflare",
      "CLOUDFLARE_MAIL_DOMAINS": "yourdomain.com" // comma-separate multiple domains
    }
    ```
@@ -521,12 +541,12 @@ migrations/          D1 schema, applied in order
 | --- | --- |
 | `wrangler email sending enable` → 404 | Wrangler too old — upgrade to 4.123+ |
 | Mail never arrives (Resend) | `dig MX yourdomain.com` must point at Resend; enable receiving on the domain |
-| Mail never arrives (Cloudflare) | Apex MX must be Cloudflare Routing, catch-all must target this Worker, `EMAIL_PROVIDER=cloudflare`, Worker must be deployed |
+| Mail never arrives (Cloudflare) | Apex MX must be Cloudflare Routing, catch-all must target this Worker, `EMAIL_INBOUND=cloudflare`, Worker must be deployed |
 | Webhook 401 | `RESEND_WEBHOOK_SECRET` mismatch — secrets are shown once; recreate the webhook |
 | Webhook 500 | `bunx wrangler tail` |
 | Attachments missing | R2 bucket must exist and match `bucket_name` in `wrangler.jsonc` |
 | `database_id` errors on deploy | Paste the id from `wrangler d1 create` into `wrangler.jsonc` |
-| Setup shows no Cloudflare domains | Set `CLOUDFLARE_MAIL_DOMAINS` and `EMAIL_PROVIDER=cloudflare`, restart the dev server |
+| Setup shows no Cloudflare domains | Set `CLOUDFLARE_MAIL_DOMAINS` and `EMAIL_OUTBOUND` (or `EMAIL_INBOUND`) to `cloudflare`, restart the dev server |
 
 ## License
 

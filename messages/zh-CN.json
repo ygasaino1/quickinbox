@@ -168,7 +168,7 @@
 		},
 		"missingHint": {
 			"resend": "wrangler secret put RESEND_API_KEY",
-			"cloudflare": "EMAIL_PROVIDER=cloudflare\nCLOUDFLARE_MAIL_DOMAINS=yourdomain.com"
+			"cloudflare": "EMAIL_INBOUND=cloudflare\nEMAIL_OUTBOUND=cloudflare\nCLOUDFLARE_MAIL_DOMAINS=yourdomain.com"
 		},
 		"noDomainsTitle": {
 			"resend": "此 Resend 账户中没有域名",

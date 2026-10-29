@@ -4,8 +4,10 @@ import type { MailAddress } from '$lib/types';
 import type { EmailProvider } from './email-provider';
 import {
 	parseMailDomains,
-	resolveInboundKind,
+	parseProviderKind,
+	ProviderError,
 	withInbound,
+	withoutSending,
 	type ProviderDomain
 } from './email-provider';
 import {
@@ -203,15 +205,14 @@ test('Cloudflare sends CID SVGs inline and ordinary files as attachments', async
 	);
 });
 
-describe('split inbound / outbound providers', () => {
-	test('inbound follows EMAIL_PROVIDER unless EMAIL_INBOUND overrides it', () => {
-		assert.equal(resolveInboundKind(undefined, undefined), 'resend');
-		assert.equal(resolveInboundKind(undefined, 'cloudflare'), 'cloudflare');
-		assert.equal(resolveInboundKind('', 'resend'), 'resend');
-		assert.equal(resolveInboundKind('cloudflare', 'resend'), 'cloudflare');
-		assert.equal(resolveInboundKind(' Cloudflare ', 'resend'), 'cloudflare');
-		assert.equal(resolveInboundKind('resend', 'cloudflare'), 'resend');
-		assert.equal(resolveInboundKind('smtp', 'resend'), null);
+describe('explicit inbound / outbound providers', () => {
+	test('each setting names one service; empty, none and off turn it off', () => {
+		assert.deepEqual(parseProviderKind('resend'), { kind: 'resend', valid: true });
+		assert.deepEqual(parseProviderKind(' Cloudflare '), { kind: 'cloudflare', valid: true });
+		for (const off of [undefined, null, '', '   ', 'none', 'OFF']) {
+			assert.deepEqual(parseProviderKind(off), { kind: null, valid: true });
+		}
+		assert.deepEqual(parseProviderKind('smtp'), { kind: null, valid: false });
 	});
 
 	const resendDomain: ProviderDomain = {
@@ -238,21 +239,37 @@ describe('split inbound / outbound providers', () => {
 	test('Cloudflare inbound marks routed domains as receiving even though Resend has it off', async () => {
 		const provider = withInbound(resendLike, 'cloudflare', 'yours.com');
 		assert.equal(provider.kind, 'resend');
+		const domain = await provider.getDomain('resend-domain-id');
 		assert.equal((await provider.listDomains())[0].receivingEnabled, true);
-		assert.equal((await provider.getDomain('resend-domain-id')).receivingEnabled, true);
-		// Sending state and identity stay Resend's.
-		assert.equal((await provider.getDomain('resend-domain-id')).id, 'resend-domain-id');
-		assert.equal((await provider.getDomain('resend-domain-id')).sendingEnabled, true);
+		assert.equal(domain.receivingEnabled, true);
+		// Identity and sending state stay Resend's.
+		assert.equal(domain.id, 'resend-domain-id');
+		assert.equal(domain.sendingEnabled, true);
 	});
 
 	test('a domain missing from CLOUDFLARE_MAIL_DOMAINS is not reported as receiving', async () => {
-		const provider = withInbound(resendLike, 'cloudflare', 'other.com');
-		assert.equal((await provider.listDomains())[0].receivingEnabled, false);
-		const unset = withInbound(resendLike, 'cloudflare', undefined);
-		assert.equal((await unset.listDomains())[0].receivingEnabled, false);
+		for (const list of ['other.com', undefined, '']) {
+			const provider = withInbound(resendLike, 'cloudflare', list);
+			assert.equal((await provider.listDomains())[0].receivingEnabled, false);
+		}
 	});
 
-	test('matching inbound and outbound leaves the provider untouched', () => {
+	test('with inbound off no domain receives', async () => {
+		const provider = withInbound(resendLike, null, 'yours.com');
+		assert.equal((await provider.listDomains())[0].receivingEnabled, false);
+	});
+
+	test('the same service in both directions leaves the provider untouched', () => {
 		assert.equal(withInbound(resendLike, 'resend', 'yours.com'), resendLike);
+	});
+
+	test('with outbound off, domains list as not sendable and sending is refused', async () => {
+		const provider = withoutSending(resendLike);
+		assert.equal((await provider.listDomains())[0].sendingEnabled, false);
+		assert.equal((await provider.getDomain('resend-domain-id')).sendingEnabled, false);
+		await assert.rejects(
+			provider.send(providerAttachmentInput()),
+			(error: unknown) => error instanceof ProviderError && error.code === 'sending_disabled'
+		);
 	});
 });

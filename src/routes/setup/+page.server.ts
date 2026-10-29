@@ -16,7 +16,7 @@ import type { AvailableDomain } from '$lib/types';
  */
 export const load: PageServerLoad = async ({ platform }) => {
 	const providerKind = safeEmailProviderKind(platform);
-	const inboundKind = safeInboundProviderKind(platform);
+	const inboundKind = safeInboundProviderKind(platform) ?? providerKind;
 
 	try {
 		const available = await listAvailableDomains(platform);

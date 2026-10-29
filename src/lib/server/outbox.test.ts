@@ -16,6 +16,7 @@ import {
 	replyTarget,
 	ReplyGuardError,
 	resolveReplyFromAddress,
+	resolveTypedFromAddress,
 	sendAndStore
 } from './outbox';
 import { getEmailForUser } from './mail-store';
@@ -671,5 +672,64 @@ describe('assertReplyReviewed', () => {
 			assertReplyReviewed(db, user.id, original, ['sam@other.test'], ['attacker@evil.test']),
 			(error: unknown) => error instanceof ReplyGuardError && error.code === 'recipient_changed'
 		);
+	});
+});
+
+describe('resolveTypedFromAddress', () => {
+	const admin: User = { ...user, is_admin: true };
+	const domain: DomainRow = {
+		id: 'dom-1',
+		name: 'example.com',
+		status: 'verified',
+		region: null,
+		sending_enabled: 1,
+		receiving_enabled: 1,
+		catchall_user_id: null,
+		created_at: user.created_at,
+		synced_at: null
+	};
+	const db = (domains: DomainRow[] = [domain]) =>
+		mockDb({ addresses: [{ ...defaultAddress, user_id: admin.id }], domains });
+
+	test('an admin can send as any name on a connected domain without creating it', async () => {
+		const from = await resolveTypedFromAddress(db(), admin, ' Netflix <Netflix@Example.com> ');
+		assert.equal(from.address, 'netflix@example.com');
+		assert.equal(from.domain_id, 'dom-1');
+		assert.equal(from.domain_name, 'example.com');
+		// No addresses row backs it, so nothing is stored against the foreign key.
+		assert.equal(persistableAddressId(from.id), null);
+	});
+
+	test('a saved address of that name keeps its label and id', async () => {
+		const from = await resolveTypedFromAddress(db(), admin, 'ADA@example.com');
+		assert.equal(from.id, 'addr-default');
+		assert.equal(from.label, 'Office');
+	});
+
+	test('anyone who is not an admin is refused', async () => {
+		await assert.rejects(
+			resolveTypedFromAddress(db(), user, 'netflix@example.com'),
+			/Only admins/
+		);
+	});
+
+	test('a domain that is not connected is refused', async () => {
+		await assert.rejects(
+			resolveTypedFromAddress(db(), admin, 'me@elsewhere.test'),
+			/not a connected domain/
+		);
+	});
+
+	test('a domain that cannot send is refused', async () => {
+		await assert.rejects(
+			resolveTypedFromAddress(db([{ ...domain, sending_enabled: 0 }]), admin, 'me@example.com'),
+			/not set up for sending/
+		);
+	});
+
+	test('malformed senders are refused', async () => {
+		for (const typed of ['', 'nobody', '@example.com', 'a@@example.com', 'a b@example.com']) {
+			await assert.rejects(resolveTypedFromAddress(db(), admin, typed), /not a valid sender/);
+		}
 	});
 });

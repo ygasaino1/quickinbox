@@ -1,10 +1,12 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { resolveFromAddress } from '$lib/server/outbox';
+import { persistableAddressId, resolveFromAddress, resolveTypedFromAddress } from '$lib/server/outbox';
 import { saveDraft } from '$lib/server/mail-store';
 
 type DraftBody = {
 	id?: string;
 	fromAddressId?: string;
+	/** Admins only: a typed sender, any name on a connected domain. */
+	fromAddress?: string;
 	to?: string;
 	cc?: string;
 	bcc?: string;
@@ -23,7 +25,9 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	const body = (await request.json()) as DraftBody;
 
 	try {
-		const from = await resolveFromAddress(db, locals.user, body.fromAddressId);
+		const from = body.fromAddress?.trim()
+			? await resolveTypedFromAddress(db, locals.user, body.fromAddress)
+			: await resolveFromAddress(db, locals.user, body.fromAddressId);
 
 		const id = await saveDraft(db, locals.user.id, {
 			id: body.id,
@@ -35,7 +39,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 			bodyText: body.text ?? null,
 			bodyHtml: body.html ?? null,
 			domainId: from.domain_id,
-			addressId: from.id
+			addressId: persistableAddressId(from.id)
 		});
 
 		return json({ ok: true, id });

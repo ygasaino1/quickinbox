@@ -22,6 +22,19 @@
 	let chosenAddressId = $state('');
 	const fromAddressId = $derived(chosenAddressId || defaultAddressId);
 
+	// Admins type the From address freely; everyone else picks from their addresses.
+	const isAdmin = $derived(data.user?.is_admin ?? false);
+	let typedFrom = $state(
+		untrack(
+			() =>
+				data.draft?.from_addr ||
+				data.addresses.find((address) => address.is_default)?.address ||
+				data.addresses[0]?.address ||
+				''
+		)
+	);
+	const fromFields = $derived(isAdmin ? { fromAddress: typedFrom.trim() } : { fromAddressId });
+
 	// The draft seeds the form once; after that the fields own their values.
 	const draft = untrack(() => data.draft);
 
@@ -53,7 +66,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					id: draftId,
-					fromAddressId,
+					...fromFields,
 					to,
 					cc: cc.trim() || undefined,
 					bcc: bcc.trim() || undefined,
@@ -113,7 +126,7 @@
 				headers: { 'Content-Type': 'application/json', 'Idempotency-Key': sendKey },
 				body: JSON.stringify({
 					draftId: draftId ?? undefined,
-					fromAddressId,
+					...fromFields,
 					to,
 					cc: cc.trim() || undefined,
 					bcc: bcc.trim() || undefined,
@@ -196,7 +209,23 @@
 		<!-- With several domains connected, choosing the identity matters. -->
 		<div class="field-row">
 			<span class="field-label">{t('compose.from')}</span>
-			{#if addresses.length > 1}
+			{#if isAdmin}
+				<input
+					type="text"
+					inputmode="email"
+					autocomplete="off"
+					list="from-addresses"
+					bind:value={typedFrom}
+					required
+					class="field-input"
+					aria-label={t('compose.sendFrom')}
+				/>
+				<datalist id="from-addresses">
+					{#each addresses as address (address.id)}
+						<option value={address.address}>{address.label ?? ''}</option>
+					{/each}
+				</datalist>
+			{:else if addresses.length > 1}
 				<select
 					value={fromAddressId}
 					onchange={(event) => (chosenAddressId = event.currentTarget.value)}

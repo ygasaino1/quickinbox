@@ -15,6 +15,8 @@ type SendMailBody = {
 	/** Set when the composer was editing a draft — it is removed once sent. */
 	draftId?: string;
 	fromAddressId?: string;
+	/** Admins only: a typed sender, any name on a connected domain. */
+	fromAddress?: string;
 	to?: string;
 	cc?: string;
 	bcc?: string;
@@ -107,6 +109,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 			locals.user,
 			{
 				fromAddressId: body.fromAddressId,
+				fromTyped: body.fromAddress,
 				to: body.to,
 				cc: body.cc,
 				bcc: body.bcc,

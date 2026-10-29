@@ -37,6 +37,11 @@ import { escapeHtml, parseRecipients, sendOutboundEmail, validateSubject } from 
 
 export type ComposeInput = {
 	fromAddressId?: string | null;
+	/**
+	 * A free-typed sender, for admins: any name on a connected domain, whether or
+	 * not it has been created as an address. Ignored for `fromAddress`.
+	 */
+	fromTyped?: string | null;
 	/** Pre-resolved identity — used by replies so we can send from the received mailbox. */
 	fromAddress?: MailAddress | null;
 	to: string;
@@ -148,20 +153,70 @@ export async function resolveReplyFromAddress(
 			owned.some((address) => address.domain_id === domain.id));
 
 	if (domain && canSendOnDomain && mailbox.includes('@')) {
-		return {
-			id: `reply:${mailbox}`,
-			user_id: user.id,
-			domain_id: domain.id,
-			domain_name: domain.name,
-			address: mailbox,
-			label: null,
-			signature: null,
-			is_default: false,
-			created_at: new Date().toISOString()
-		};
+		return unsavedAddress(user, domain, mailbox);
 	}
 
 	return getDefaultAddress(db, user.id);
+}
+
+/** A sending identity with no `addresses` row; its id is synthetic (see persistableAddressId). */
+function unsavedAddress(user: User, domain: { id: string; name: string }, mailbox: string): MailAddress {
+	return {
+		id: `${SYNTHETIC_ADDRESS_ID_PREFIX}${mailbox}`,
+		user_id: user.id,
+		domain_id: domain.id,
+		domain_name: domain.name,
+		address: mailbox,
+		label: null,
+		signature: null,
+		is_default: false,
+		created_at: new Date().toISOString()
+	};
+}
+
+/**
+ * Admin-only: send as any address the admin types, on any connected domain,
+ * without creating it first. A saved address of the same name wins, so its
+ * label and signature still apply. Everyone else keeps to the addresses they
+ * own — this is the one place a sender is not an `addresses` row.
+ */
+export async function resolveTypedFromAddress(
+	db: D1Database,
+	user: User,
+	typed: string
+): Promise<MailAddress> {
+	if (!user.is_admin) {
+		throw new Error('Only admins can send from an address that is not saved. Pick one of your addresses.');
+	}
+
+	const raw = typed.trim();
+	const mailbox = parseEmailAddress(raw);
+	const [local, domainName, ...rest] = mailbox.split('@');
+	// parseEmailAddress is lenient (it would read "a b@x.com" as b@x.com); a typed
+	// sender must be one clean address, optionally as "Name <address>".
+	if (
+		!local ||
+		!domainName ||
+		rest.length > 0 ||
+		/[\s<>,;]/.test(mailbox) ||
+		(!raw.includes('<') && /\s/.test(raw))
+	) {
+		throw new Error(`"${typed.trim()}" is not a valid sender address`);
+	}
+
+	const owned = await listAddressesForUser(db, user.id);
+	const saved = owned.find((address) => address.address.toLowerCase() === mailbox);
+	if (saved) return saved;
+
+	const domain = await getDomainByName(db, domainName);
+	if (!domain) {
+		throw new Error(`${domainName} is not a connected domain, so mail cannot be sent from it`);
+	}
+	if (!domain.sending_enabled) {
+		throw new Error(`${domain.name} is connected but not set up for sending`);
+	}
+
+	return unsavedAddress(user, domain, mailbox);
 }
 
 /** Who a reply goes to: the sender, or — replying to our own message — its recipients. */
@@ -267,8 +322,13 @@ export async function sendAndStore(
 	user: User,
 	input: ComposeInput
 ): Promise<{ emailId: string; providerId: string; from: MailAddress }> {
-	// resolveFromAddress scopes the lookup to this user, so ownership is implied.
-	const from = input.fromAddress ?? (await resolveFromAddress(env.DB, user, input.fromAddressId));
+	// resolveFromAddress scopes the lookup to this user, so ownership is implied;
+	// a typed sender is only honoured for admins (see resolveTypedFromAddress).
+	const from =
+		input.fromAddress ??
+		(input.fromTyped?.trim()
+			? await resolveTypedFromAddress(env.DB, user, input.fromTyped)
+			: await resolveFromAddress(env.DB, user, input.fromAddressId));
 
 	const bodyHtml = input.html?.trim() || null;
 	const bodyText = input.text?.trim() || (bodyHtml ? stripHtml(bodyHtml) : '');

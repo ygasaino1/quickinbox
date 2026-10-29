@@ -351,6 +351,10 @@ webhook at the tunnel — never repoint production.
 bun scripts/reset-admin-password.mjs you@example.com newpassword --local
 ```
 
+### Sending from any name (admins)
+
+Admins do not pick a sender from a list: the **From** field in the composer is plain text, pre-filled with the default address and suggesting saved ones. Type any name on a connected domain (`netflix@yourdomain.com`) and send; it does not have to exist as an address first. The same works over the API with `"fromAddress": "name@yourdomain.com"` on `POST /api/mail` and `POST /api/drafts`. The domain must be connected and sending-enabled. A saved address of the same name keeps its label and signature. Non-admins keep choosing from their own addresses and are refused a typed sender.
+
 ## API access
 
 Any user can mint a long-lived API key under **Settings → API keys** and use it

@@ -41,10 +41,10 @@
 	// when EMAIL_OUTBOUND=cloudflare).
 	// Locally, put values in .dev.vars (copy .dev.vars.example).
 	"vars": {
-		"EMAIL_INBOUND": "resend",
+		"EMAIL_INBOUND": "cloudflare",
 		"EMAIL_OUTBOUND": "resend",
-		// Dashboard form requires a non-empty value. Keep example.com unless
-		// Cloudflare is used in either direction; then use your domain.
+		// Defaults: Cloudflare receives, Resend sends. Replace example.com with your
+		// domain(s), comma-separated — Cloudflare inbound only accepts these domains.
 		"CLOUDFLARE_MAIL_DOMAINS": "example.com"
 	},
 

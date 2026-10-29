@@ -69,12 +69,20 @@
 			// `bun run setup` fills this in, or: wrangler d1 create <name>
 			"database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
 			"migrations_dir": "migrations"
+		},
+		{
+			// Attachment bytes live here unless you bind R2 (see below). A second
+			// database means attachments can't crowd out mail within D1's per-database cap.
+			"binding": "ATTACHMENTS_DB",
+			"database_name": "quickmail-attachments",
+			"database_id": "REPLACE_WITH_YOUR_ATTACHMENTS_D1_DATABASE_ID",
+			"migrations_dir": "migrations-attachments"
 		}
 	],
 
-	// Attachments are stored in D1 by default, so no R2 bucket (and no payment
-	// card) is needed. To keep large attachments in R2 instead, enable R2 on your
-	// Cloudflare account, create a bucket, and uncomment:
+	// Attachments go to the ATTACHMENTS_DB database above, so no R2 bucket (and no
+	// payment card) is needed. To use R2 instead, enable R2 on your Cloudflare
+	// account, create a bucket, and uncomment:
 	// "r2_buckets": [
 	//   { "binding": "ATTACHMENTS", "bucket_name": "quickmail-attachments" }
 	// ],

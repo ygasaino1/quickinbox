@@ -7,6 +7,8 @@ declare global {
 		DB: D1Database;
 		/** Optional: without it, attachments are stored in D1 (see attachment-store.ts). */
 		ATTACHMENTS?: R2Bucket;
+		/** Attachment storage when R2 isn't bound. */
+		ATTACHMENTS_DB?: D1Database;
 		ASSETS: Fetcher;
 		EMAIL: CloudflareSendEmailBinding;
 		EMAIL_INBOUND?: string;

@@ -11,6 +11,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { Database } from 'bun:sqlite';
 
 const MIGRATIONS_DIR = new URL('../../../migrations/', import.meta.url);
+export const ATTACHMENTS_MIGRATIONS_DIR = new URL('../../../migrations-attachments/', import.meta.url);
 
 type SqliteStatement = {
 	all(...params: unknown[]): Record<string, unknown>[];
@@ -36,11 +37,11 @@ function execute(sqlite: Sqlite, sql: string, params: unknown[]) {
 	};
 }
 
-export function createTestDb(): { db: D1Database; sqlite: Sqlite } {
+export function createTestDb(migrationsDir: URL = MIGRATIONS_DIR): { db: D1Database; sqlite: Sqlite } {
 	const sqlite = new Database(':memory:') as Sqlite;
 	sqlite.exec('PRAGMA foreign_keys = ON');
-	for (const name of readdirSync(MIGRATIONS_DIR).filter((file) => file.endsWith('.sql')).sort()) {
-		sqlite.exec(readFileSync(new URL(name, MIGRATIONS_DIR), 'utf8'));
+	for (const name of readdirSync(migrationsDir).filter((file) => file.endsWith('.sql')).sort()) {
+		sqlite.exec(readFileSync(new URL(name, migrationsDir), 'utf8'));
 	}
 
 	const prepare = (sql: string) => {

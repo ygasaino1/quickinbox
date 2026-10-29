@@ -12,6 +12,7 @@ declare global {
 				DB: D1Database;
 				/** Always present at request time: the hook substitutes a D1-backed store when R2 isn't bound. */
 				ATTACHMENTS: R2Bucket;
+				ATTACHMENTS_DB?: D1Database;
 				ASSETS: Fetcher;
 				EMAIL: CloudflareSendEmailBinding;
 				/** Who delivers inbound mail: `resend`, `cloudflare`, or empty/`none` for off. */

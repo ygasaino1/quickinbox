@@ -1,8 +1,8 @@
 import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 
 /**
- * Attachment bytes live in R2 when an `ATTACHMENTS` bucket is bound, and in D1
- * otherwise. R2 needs a payment card on file; D1 does not. The rest of the app
+ * Attachment bytes live in R2 when an `ATTACHMENTS` bucket is bound, and in a
+ * dedicated D1 database (`ATTACHMENTS_DB`) otherwise. R2 needs a payment card on file; D1 does not. The rest of the app
  * only ever calls put/get/delete, so the D1 store implements exactly those.
  */
 
@@ -62,10 +62,25 @@ export function createD1AttachmentBucket(db: D1Database): AttachmentBucket {
 	};
 }
 
+/** Stand-in used when neither R2 nor ATTACHMENTS_DB is bound: fails loudly, never silently. */
+function createMissingBucket(): AttachmentBucket {
+	const fail = async (): Promise<never> => {
+		throw new Error(
+			'No attachment storage configured: bind ATTACHMENTS_DB (a second D1 database) or an R2 bucket named ATTACHMENTS.'
+		);
+	};
+	return { put: fail, get: fail, delete: fail };
+}
+
 /**
- * The bound R2 bucket if there is one, otherwise a D1-backed store. Typed as
- * R2Bucket so existing call sites keep working unchanged.
+ * The bound R2 bucket if there is one, otherwise the ATTACHMENTS_DB database.
+ * Typed as R2Bucket so existing call sites keep working unchanged.
  */
-export function resolveAttachmentBucket(env: { DB: D1Database; ATTACHMENTS?: R2Bucket }): R2Bucket {
-	return env.ATTACHMENTS ?? (createD1AttachmentBucket(env.DB) as unknown as R2Bucket);
+export function resolveAttachmentBucket(env: {
+	ATTACHMENTS?: R2Bucket;
+	ATTACHMENTS_DB?: D1Database;
+}): R2Bucket {
+	if (env.ATTACHMENTS) return env.ATTACHMENTS;
+	const bucket = env.ATTACHMENTS_DB ? createD1AttachmentBucket(env.ATTACHMENTS_DB) : createMissingBucket();
+	return bucket as unknown as R2Bucket;
 }

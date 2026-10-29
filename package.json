@@ -13,9 +13,9 @@
 		"build": "vite build && bun scripts/wrap-cloudflare-worker.mjs",
 		"preview": "bun run build && wrangler dev",
 		"setup": "node scripts/setup.mjs",
-		"deploy": "bun run build && wrangler d1 migrations apply DB --remote && wrangler deploy",
-		"db:migrate:local": "wrangler d1 migrations apply quickmail --local",
-		"db:migrate:remote": "wrangler d1 migrations apply quickmail --remote",
+		"deploy": "bun run build && wrangler d1 migrations apply DB --remote && wrangler d1 migrations apply ATTACHMENTS_DB --remote && wrangler deploy",
+		"db:migrate:local": "wrangler d1 migrations apply quickmail --local && wrangler d1 migrations apply ATTACHMENTS_DB --local",
+		"db:migrate:remote": "wrangler d1 migrations apply quickmail --remote && wrangler d1 migrations apply ATTACHMENTS_DB --remote",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:clean": "bun scripts/check-template-clean.mjs",
@@ -60,6 +60,9 @@
 		"bindings": {
 			"DB": {
 				"description": "D1 database for mail, users, and threads."
+			},
+			"ATTACHMENTS_DB": {
+				"description": "Second D1 database that stores attachments, so they can't fill up your mail database. Leave the default; no R2 or card needed."
 			},
 			"EMAIL_INBOUND": {
 				"description": "Who delivers **incoming** mail. Type exactly one of: `cloudflare` (Email Routing; your domain's DNS must be on Cloudflare), `resend` (Resend receiving), or `none` (receiving off). Typical setup: `cloudflare`."

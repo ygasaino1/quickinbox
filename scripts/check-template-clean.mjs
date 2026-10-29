@@ -89,6 +89,9 @@ if (!existsSync(wranglerPath)) {
 			'wrangler.jsonc no longer has the database_id placeholder — a real D1 id was committed'
 		);
 	}
+	if (!wrangler.includes('REPLACE_WITH_YOUR_ATTACHMENTS_D1_DATABASE_ID')) {
+		fail('wrangler.jsonc no longer has the attachments database_id placeholder — a real D1 id was committed');
+	}
 	const route = wrangler.match(/^\s*"pattern"\s*:\s*"([^"]+)"/m);
 	if (route && !route[1].includes('example.com')) {
 		fail(`wrangler.jsonc has a live route pattern: ${route[1]} — it should stay commented out`);

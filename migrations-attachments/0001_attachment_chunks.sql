@@ -1,4 +1,5 @@
--- Attachment bytes stored in D1 when no R2 bucket is bound (no payment card needed).
+-- Lives in the separate ATTACHMENTS_DB database (migrations_dir: migrations-attachments),
+-- used when no R2 bucket is bound (no payment card needed).
 -- D1 caps a row at 2 MB, so each object is split into chunks. `storage_key`
 -- matches email_attachments.storage_key; rows are removed by the same delete
 -- path that removes R2 objects.

@@ -372,6 +372,16 @@ function setFirstString(source, key, value) {
 	return source.replace(new RegExp(`("${key}"\\s*:\\s*")[^"]*(")`), `$1${value}$2`);
 }
 
+const ATTACHMENTS_DB_NAME = 'quickmail-attachments';
+
+/** Fill in the ATTACHMENTS_DB entry (the second d1_databases block). */
+function setAttachmentsDatabase(source, id) {
+	return source.replace(
+		/("binding"\s*:\s*"ATTACHMENTS_DB"[\s\S]*?"database_id"\s*:\s*")[^"]*(")/,
+		`$1${id}$2`
+	);
+}
+
 function setVars(source, { provider, domains }) {
 	const lines = [`\t\t"EMAIL_INBOUND": "${provider}"`, `\t\t"EMAIL_OUTBOUND": "${provider}"`];
 	if (provider === 'cloudflare' && domains) {
@@ -786,8 +796,10 @@ function setPackageMigrateScripts(databaseName) {
 	if (!existsSync(pkgPath)) return;
 	const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 	if (!pkg.scripts) return;
-	pkg.scripts['db:migrate:local'] = `wrangler d1 migrations apply ${databaseName} --local`;
-	pkg.scripts['db:migrate:remote'] = `wrangler d1 migrations apply ${databaseName} --remote`;
+	pkg.scripts['db:migrate:local'] =
+		`wrangler d1 migrations apply ${databaseName} --local && wrangler d1 migrations apply ATTACHMENTS_DB --local`;
+	pkg.scripts['db:migrate:remote'] =
+		`wrangler d1 migrations apply ${databaseName} --remote && wrangler d1 migrations apply ATTACHMENTS_DB --remote`;
 	writeFileSync(pkgPath, `${JSON.stringify(pkg, null, '\t')}\n`);
 }
 
@@ -962,10 +974,12 @@ function migrate(local, remote) {
 	const databaseName = jsoncString(readWrangler(), 'database_name') || 'quickmail';
 	if (local) {
 		wrangler(['d1', 'migrations', 'apply', databaseName, '--local'], { inherit: true });
+		wrangler(['d1', 'migrations', 'apply', 'ATTACHMENTS_DB', '--local'], { inherit: true });
 		ok('local D1 migrations applied');
 	}
 	if (remote) {
 		wrangler(['d1', 'migrations', 'apply', databaseName, '--remote'], { inherit: true });
+		wrangler(['d1', 'migrations', 'apply', 'ATTACHMENTS_DB', '--remote'], { inherit: true });
 		ok('remote D1 migrations applied');
 	}
 }
@@ -1142,7 +1156,7 @@ async function main() {
 	const hostname = await askHostname(domain);
 	if (hostname) ok(`UI hostname ${hostname}`);
 
-	section(4, total, 'D1 database');
+	section(4, total, 'D1 databases');
 	const databaseName = await askResourceName(
 		'D1 database name (e.g. quickmail)',
 		jsoncString(source, 'database_name') || 'quickmail',
@@ -1152,12 +1166,14 @@ async function main() {
 	);
 	ok(`D1 ${databaseName}`);
 	const databaseId = await ensureD1(databaseName);
+	const attachmentsDatabaseId = await ensureD1(ATTACHMENTS_DB_NAME);
 
 	section(5, total, 'Config');
 	source = readWrangler();
 	source = setFirstString(source, 'name', workerName);
 	source = setFirstString(source, 'database_name', databaseName);
 	source = setFirstString(source, 'database_id', databaseId);
+	source = setAttachmentsDatabase(source, attachmentsDatabaseId);
 	source = setVars(source, {
 		provider,
 		domains: provider === 'cloudflare' ? domain : ''

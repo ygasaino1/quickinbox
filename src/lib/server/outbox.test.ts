@@ -706,11 +706,47 @@ describe('resolveTypedFromAddress', () => {
 		assert.equal(from.label, 'Office');
 	});
 
-	test('anyone who is not an admin is refused', async () => {
+	test('a non-admin is refused on a domain they are not the catch-all for', async () => {
+		const plain = mockDb({ addresses: [defaultAddress], domains: [domain] });
 		await assert.rejects(
-			resolveTypedFromAddress(db(), user, 'netflix@example.com'),
-			/Only admins/
+			resolveTypedFromAddress(plain, user, 'netflix@example.com'),
+			/catch-all for/
 		);
+		const someoneElses = mockDb({
+			addresses: [defaultAddress],
+			domains: [{ ...domain, catchall_user_id: 'user-2' }]
+		});
+		await assert.rejects(
+			resolveTypedFromAddress(someoneElses, user, 'netflix@example.com'),
+			/catch-all for/
+		);
+	});
+
+	test('the catch-all owner can send as any name on that domain, but only that domain', async () => {
+		const owned = mockDb({
+			addresses: [defaultAddress],
+			domains: [
+				{ ...domain, catchall_user_id: user.id },
+				{ ...domain, id: 'dom-2', name: 'other.test', catchall_user_id: null }
+			]
+		});
+		const from = await resolveTypedFromAddress(owned, user, 'netflix@example.com');
+		assert.equal(from.address, 'netflix@example.com');
+		assert.equal(from.user_id, user.id);
+		assert.equal(persistableAddressId(from.id), null);
+		await assert.rejects(
+			resolveTypedFromAddress(owned, user, 'netflix@other.test'),
+			/catch-all for/
+		);
+	});
+
+	test('a non-admin can still type one of their own saved addresses', async () => {
+		const from = await resolveTypedFromAddress(
+			mockDb({ addresses: [defaultAddress], domains: [domain] }),
+			user,
+			'ada@example.com'
+		);
+		assert.equal(from.id, 'addr-default');
 	});
 
 	test('a domain that is not connected is refused', async () => {

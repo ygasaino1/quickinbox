@@ -15,7 +15,7 @@ type SendMailBody = {
 	/** Set when the composer was editing a draft — it is removed once sent. */
 	draftId?: string;
 	fromAddressId?: string;
-	/** Admins only: a typed sender, any name on a connected domain. */
+	/** A typed sender: admins on any connected domain, catch-all owners on their domain. */
 	fromAddress?: string;
 	to?: string;
 	cc?: string;

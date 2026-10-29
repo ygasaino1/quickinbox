@@ -38,7 +38,7 @@ import { escapeHtml, parseRecipients, sendOutboundEmail, validateSubject } from 
 export type ComposeInput = {
 	fromAddressId?: string | null;
 	/**
-	 * A free-typed sender, for admins: any name on a connected domain, whether or
+	 * A free-typed sender (admins, or catch-all owners on their domain), whether or
 	 * not it has been created as an address. Ignored for `fromAddress`.
 	 */
 	fromTyped?: string | null;
@@ -175,20 +175,17 @@ function unsavedAddress(user: User, domain: { id: string; name: string }, mailbo
 }
 
 /**
- * Admin-only: send as any address the admin types, on any connected domain,
- * without creating it first. A saved address of the same name wins, so its
- * label and signature still apply. Everyone else keeps to the addresses they
- * own — this is the one place a sender is not an `addresses` row.
+ * Send as an address that is not a saved one: any name on a connected domain
+ * for an admin, or any name on a domain the user is the catch-all owner of (the
+ * same trust replies already extend). A saved address of the same name wins, so
+ * its label and signature still apply. Everyone else keeps to the addresses
+ * they own — this is the one place a sender is not an `addresses` row.
  */
 export async function resolveTypedFromAddress(
 	db: D1Database,
 	user: User,
 	typed: string
 ): Promise<MailAddress> {
-	if (!user.is_admin) {
-		throw new Error('Only admins can send from an address that is not saved. Pick one of your addresses.');
-	}
-
 	const raw = typed.trim();
 	const mailbox = parseEmailAddress(raw);
 	const [local, domainName, ...rest] = mailbox.split('@');
@@ -211,6 +208,11 @@ export async function resolveTypedFromAddress(
 	const domain = await getDomainByName(db, domainName);
 	if (!domain) {
 		throw new Error(`${domainName} is not a connected domain, so mail cannot be sent from it`);
+	}
+	if (!user.is_admin && domain.catchall_user_id !== user.id) {
+		throw new Error(
+			`You can send from your own addresses, or from any name on a domain you are the catch-all for. ${domain.name} is neither.`
+		);
 	}
 	if (!domain.sending_enabled) {
 		throw new Error(`${domain.name} is connected but not set up for sending`);

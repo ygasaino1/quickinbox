@@ -22,8 +22,13 @@
 	let chosenAddressId = $state('');
 	const fromAddressId = $derived(chosenAddressId || defaultAddressId);
 
-	// Admins type the From address freely; everyone else picks from their addresses.
-	const isAdmin = $derived(data.user?.is_admin ?? false);
+	// Admins and catch-all owners type the From address; everyone else picks from their addresses.
+	const canTypeFrom = $derived(
+		Boolean(
+			data.user?.is_admin ||
+				data.domains.some((domain) => domain.catchall_user_id === data.user?.id)
+		)
+	);
 	let typedFrom = $state(
 		untrack(
 			() =>
@@ -33,7 +38,7 @@
 				''
 		)
 	);
-	const fromFields = $derived(isAdmin ? { fromAddress: typedFrom.trim() } : { fromAddressId });
+	const fromFields = $derived(canTypeFrom ? { fromAddress: typedFrom.trim() } : { fromAddressId });
 
 	// The draft seeds the form once; after that the fields own their values.
 	const draft = untrack(() => data.draft);
@@ -209,7 +214,7 @@
 		<!-- With several domains connected, choosing the identity matters. -->
 		<div class="field-row">
 			<span class="field-label">{t('compose.from')}</span>
-			{#if isAdmin}
+			{#if canTypeFrom}
 				<input
 					type="text"
 					inputmode="email"

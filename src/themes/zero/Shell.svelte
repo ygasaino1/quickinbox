@@ -394,7 +394,7 @@
 </div>
 
 {#if composeOpen}
-	<ComposeDialog addresses={data.addresses} isAdmin={data.user.is_admin} draftId={draftId} onClose={closeCompose} />
+	<ComposeDialog addresses={data.addresses} canTypeFrom={data.user.is_admin || data.domains.some((domain) => domain.catchall_user_id === data.user.id)} draftId={draftId} onClose={closeCompose} />
 {/if}
 
 {#if paletteOpen}

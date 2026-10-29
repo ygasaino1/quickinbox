@@ -5,7 +5,7 @@ import { saveDraft } from '$lib/server/mail-store';
 type DraftBody = {
 	id?: string;
 	fromAddressId?: string;
-	/** Admins only: a typed sender, any name on a connected domain. */
+	/** A typed sender: admins on any connected domain, catch-all owners on their domain. */
 	fromAddress?: string;
 	to?: string;
 	cc?: string;

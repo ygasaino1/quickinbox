@@ -11,13 +11,13 @@
 
 	let {
 		addresses,
-		isAdmin = false,
+		canTypeFrom = false,
 		draftId = null,
 		onClose
 	}: {
 		addresses: MailAddress[];
-		/** Admins type the From address freely; everyone else picks from their addresses. */
-		isAdmin?: boolean;
+		/** Admins and catch-all owners type the From address; everyone else picks from their addresses. */
+		canTypeFrom?: boolean;
 		draftId?: string | null;
 		onClose: () => void;
 	} = $props();
@@ -27,12 +27,12 @@
 	);
 	let chosenAddressId = $state('');
 	const fromAddressId = $derived(chosenAddressId || defaultAddressId);
-	// Admin: a free-typed sender, starting from the default address.
+	// Free-typed sender (admins, catch-all owners), starting from the default address.
 	let typedFrom = $state(
 		untrack(() => addresses.find((address) => address.is_default)?.address ?? addresses[0]?.address ?? '')
 	);
-	// What the server is told: the typed sender for admins, the picked id otherwise.
-	const fromFields = $derived(isAdmin ? { fromAddress: typedFrom.trim() } : { fromAddressId });
+	// What the server is told: the typed sender when typing is allowed, the picked id otherwise.
+	const fromFields = $derived(canTypeFrom ? { fromAddress: typedFrom.trim() } : { fromAddressId });
 
 	let activeDraft = $state<string | null>(null);
 	let to = $state('');
@@ -81,7 +81,7 @@
 				subject = draft.subject ?? '';
 				html = draft.body_html || draft.body_text || '';
 				if (draft.address_id) chosenAddressId = draft.address_id;
-				if (isAdmin && draft.from_addr) typedFrom = draft.from_addr;
+				if (canTypeFrom && draft.from_addr) typedFrom = draft.from_addr;
 				showCc = Boolean(draft.cc_addr);
 				showBcc = Boolean(draft.bcc_addr);
 			})
@@ -220,7 +220,7 @@
 						<span class="z-composer-label">{t('compose.subjectColon')}</span>
 						<input class="z-composer-input" bind:value={subject} required placeholder={t('compose.subject')} />
 				</div>
-				{#if isAdmin}
+				{#if canTypeFrom}
 					<div class="z-composer-row">
 						<span class="z-composer-label">{t('compose.fromColon')}</span>
 						<input

@@ -1,11 +1,20 @@
 # Quickinbox
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/DivinPrince/quickinbox)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ygasaino1/quickinbox)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md)
 
 Self-hosted email for your own domain, running on Cloudflare Workers.
 Get `you@yourdomain.com` with a full web client — no third-party mailbox,
 no servers to maintain.
+
+> **An opinionated fork of [DivinPrince/quickinbox](https://github.com/DivinPrince/quickinbox)** (MIT). It keeps everything upstream does and changes how mail is wired and who can send as what. Deploy and CLI links in this README point at this fork.
+
+## What is different in this fork
+
+- **Receiving and sending are configured separately.** `EMAIL_PROVIDER` is gone. `EMAIL_INBOUND` and `EMAIL_OUTBOUND` each take `resend`, `cloudflare`, or empty/`none` to turn that direction off, and nothing is inferred from one to the other. The intended setup is **Cloudflare Email Routing in, Resend out**, which works with your domain's DNS on Cloudflare and Resend's sending records only. See [Choosing a mail provider](#choosing-a-mail-provider).
+- **Catch-all first.** Mail to any name on the domain is accepted and lands with the domain's catch-all owner, stored under the exact address it was sent to. Replies go out from that same name.
+- **Free-typed From for admins and catch-all owners.** The composer's From field is plain text: send as `anything@yourdomain.com` without creating the address first (admins on any connected domain, catch-all owners on theirs). Everyone else still picks from their own addresses. See [Sending from any name](#sending-from-any-name-admins-and-catch-all-owners).
+- **Domains report receiving from the inbound side**, so a Resend domain with receiving switched off no longer shows a "can't receive" warning when Cloudflare handles inbound.
 
 ## Features
 
@@ -436,7 +445,7 @@ setups can point at it too.
 ## CLI and MCP (local)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DivinPrince/quickinbox/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ygasaino1/quickinbox/main/scripts/install.sh | sh
 quickinbox login --url https://<your-instance> --token <key from Settings>
 quickinbox inbox
 quickinbox send --to someone@example.com --subject "Hi" --body "Hello"

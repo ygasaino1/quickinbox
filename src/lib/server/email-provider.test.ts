@@ -281,15 +281,24 @@ describe('explicit inbound / outbound providers', () => {
 		assert.equal((await off.listDomains())[0].receivingEnabled, false);
 	});
 
-	test('Resend inbound with another lister: unknown domain, no lookup, or a failed lookup is not receiving', async () => {
+	test('Resend inbound with another lister: an unknown domain, or no lookup, is not receiving', async () => {
 		const unknown = withInbound(cloudflareLister, 'resend', 'yours.com', async () => []);
 		assert.equal((await unknown.listDomains())[0].receivingEnabled, false);
 		const noLookup = withInbound(cloudflareLister, 'resend', 'yours.com');
 		assert.equal((await noLookup.getDomain('cf-id')).receivingEnabled, false);
+	});
+
+	test('a failed Resend lookup is an error, never a saved "not receiving"', async () => {
 		const failing = withInbound(cloudflareLister, 'resend', 'yours.com', async () => {
 			throw new Error('network');
 		});
-		assert.equal((await failing.listDomains())[0].receivingEnabled, false);
+		for (const read of [() => failing.listDomains(), () => failing.getDomain('cf-id')]) {
+			await assert.rejects(
+				read(),
+				(error: unknown) =>
+					error instanceof ProviderError && error.code === 'resend_receiving_lookup_failed'
+			);
+		}
 	});
 
 	test('Resend is asked once per provider, however many domains are read', async () => {

@@ -104,7 +104,9 @@ export function withInbound(
 	// Resend delivers inbound but another service lists the domains: the lister's
 	// own "receiving" flag says nothing about Resend, so ask Resend. A domain
 	// Resend does not know, or cannot receive for, is not receiving; so is every
-	// domain when Resend cannot be asked (no API key) or the lookup fails.
+	// domain when Resend cannot be asked (no API key). A failed lookup is an
+	// error, not "not receiving": saving that would flip a working domain's
+	// status after a brief outage.
 	if (inbound === 'resend') {
 		const key = (name: string) => name.trim().toLowerCase().replace(/\.$/, '');
 		// Asked once per provider instance: connecting several domains calls
@@ -112,11 +114,18 @@ export function withInbound(
 		let cached: Promise<Set<string>> | undefined;
 		const receivable = (): Promise<Set<string>> =>
 			(cached ??= (async () => {
+				if (!resendDomains) return new Set<string>();
 				try {
-					const remote = resendDomains ? await resendDomains() : [];
+					const remote = await resendDomains();
 					return new Set(remote.filter((d) => d.receivingEnabled).map((d) => key(d.name)));
-				} catch {
-					return new Set<string>();
+				} catch (error) {
+					throw new ProviderError(
+						502,
+						'resend_receiving_lookup_failed',
+						`Could not check Resend's receiving status; try again. ${
+							error instanceof Error ? error.message : ''
+						}`.trim()
+					);
 				}
 			})());
 		const mark = (domain: ProviderDomain, ok: Set<string>): ProviderDomain => ({

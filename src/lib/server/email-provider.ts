@@ -140,14 +140,18 @@ export function withInbound(
 	// domain when Resend cannot be asked (no API key) or the lookup fails.
 	if (inbound === 'resend') {
 		const key = (name: string) => name.trim().toLowerCase().replace(/\.$/, '');
-		const receivable = async (): Promise<Set<string>> => {
-			try {
-				const remote = resendDomains ? await resendDomains() : [];
-				return new Set(remote.filter((d) => d.receivingEnabled).map((d) => key(d.name)));
-			} catch {
-				return new Set();
-			}
-		};
+		// Asked once per provider instance: connecting several domains calls
+		// getDomain repeatedly and would otherwise list Resend's domains each time.
+		let cached: Promise<Set<string>> | undefined;
+		const receivable = (): Promise<Set<string>> =>
+			(cached ??= (async () => {
+				try {
+					const remote = resendDomains ? await resendDomains() : [];
+					return new Set(remote.filter((d) => d.receivingEnabled).map((d) => key(d.name)));
+				} catch {
+					return new Set<string>();
+				}
+			})());
 		const mark = (domain: ProviderDomain, ok: Set<string>): ProviderDomain => ({
 			...domain,
 			receivingEnabled: ok.has(key(domain.name))
@@ -155,12 +159,12 @@ export function withInbound(
 		return {
 			...provider,
 			async listDomains() {
-				const ok = await receivable();
-				return (await provider.listDomains()).map((domain) => mark(domain, ok));
+				const [ok, domains] = await Promise.all([receivable(), provider.listDomains()]);
+				return domains.map((domain) => mark(domain, ok));
 			},
 			async getDomain(id: string) {
-				const ok = await receivable();
-				return mark(await provider.getDomain(id), ok);
+				const [ok, domain] = await Promise.all([receivable(), provider.getDomain(id)]);
+				return mark(domain, ok);
 			}
 		};
 	}

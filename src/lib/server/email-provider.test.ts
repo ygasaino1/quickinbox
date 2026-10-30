@@ -334,6 +334,18 @@ describe('explicit inbound / outbound providers', () => {
 		assert.equal((await failing.listDomains())[0].receivingEnabled, false);
 	});
 
+	test('Resend is asked once per provider, however many domains are read', async () => {
+		let calls = 0;
+		const provider = withInbound(cloudflareLister, 'resend', 'yours.com', async () => {
+			calls++;
+			return resendSays(true)();
+		});
+		await provider.getDomain('cf-id');
+		await provider.getDomain('cf-id');
+		await provider.listDomains();
+		assert.equal(calls, 1);
+	});
+
 	test('with inbound off no domain receives', async () => {
 		const provider = withInbound(resendLike, null, 'yours.com');
 		assert.equal((await provider.listDomains())[0].receivingEnabled, false);

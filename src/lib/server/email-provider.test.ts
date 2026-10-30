@@ -296,6 +296,44 @@ describe('explicit inbound / outbound providers', () => {
 		}
 	});
 
+	const cloudflareLister: EmailProvider = {
+		...resendLike,
+		kind: 'cloudflare',
+		async listDomains() {
+			return [{ ...resendDomain, id: 'cf-id', name: 'yours.com', receivingEnabled: true }];
+		},
+		async getDomain() {
+			return { ...resendDomain, id: 'cf-id', name: 'yours.com', receivingEnabled: true };
+		}
+	};
+	const resendSays = (receivingEnabled: boolean) => async () => [
+		{ ...resendDomain, name: 'Yours.com.', receivingEnabled }
+	];
+
+	test('Resend inbound with another lister asks Resend, matching names loosely', async () => {
+		const on = withInbound(cloudflareLister, 'resend', 'yours.com', resendSays(true));
+		const domain = await on.getDomain('cf-id');
+		assert.equal(domain.receivingEnabled, true);
+		// Identity and sending stay the lister's.
+		assert.equal(domain.id, 'cf-id');
+		assert.equal(domain.sendingEnabled, true);
+		assert.equal((await on.listDomains())[0].receivingEnabled, true);
+
+		const off = withInbound(cloudflareLister, 'resend', 'yours.com', resendSays(false));
+		assert.equal((await off.listDomains())[0].receivingEnabled, false);
+	});
+
+	test('Resend inbound with another lister: unknown domain, no lookup, or a failed lookup is not receiving', async () => {
+		const unknown = withInbound(cloudflareLister, 'resend', 'yours.com', async () => []);
+		assert.equal((await unknown.listDomains())[0].receivingEnabled, false);
+		const noLookup = withInbound(cloudflareLister, 'resend', 'yours.com');
+		assert.equal((await noLookup.getDomain('cf-id')).receivingEnabled, false);
+		const failing = withInbound(cloudflareLister, 'resend', 'yours.com', async () => {
+			throw new Error('network');
+		});
+		assert.equal((await failing.listDomains())[0].receivingEnabled, false);
+	});
+
 	test('with inbound off no domain receives', async () => {
 		const provider = withInbound(resendLike, null, 'yours.com');
 		assert.equal((await provider.listDomains())[0].receivingEnabled, false);

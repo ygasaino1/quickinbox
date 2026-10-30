@@ -122,18 +122,48 @@ export function resolveMailKind(
  * Whether a domain can *receive* depends on who delivers inbound mail, which
  * need not be the service that lists the domain (Resend reports receiving off
  * for a domain that Cloudflare routes). For Cloudflare inbound a domain
- * receives when it is listed in CLOUDFLARE_MAIL_DOMAINS; with inbound off
- * nothing receives.
+ * receives when it is listed in CLOUDFLARE_MAIL_DOMAINS; for Resend inbound
+ * with a different lister, `resendDomains` supplies Resend's own answer; with
+ * inbound off nothing receives.
  */
 export function withInbound(
 	provider: EmailProvider,
 	inbound: EmailProviderKind | null,
-	cloudflareDomains: string | undefined | null
+	cloudflareDomains: string | undefined | null,
+	resendDomains?: () => Promise<ProviderDomain[]>
 ): EmailProvider {
 	if (inbound === provider.kind) return provider;
-	// Inbound by the other service than the lister: only Cloudflare's side can
-	// be answered locally, so Resend inbound keeps the lister's own answer.
-	if (inbound === 'resend') return provider;
+
+	// Resend delivers inbound but another service lists the domains: the lister's
+	// own "receiving" flag says nothing about Resend, so ask Resend. A domain
+	// Resend does not know, or cannot receive for, is not receiving; so is every
+	// domain when Resend cannot be asked (no API key) or the lookup fails.
+	if (inbound === 'resend') {
+		const key = (name: string) => name.trim().toLowerCase().replace(/\.$/, '');
+		const receivable = async (): Promise<Set<string>> => {
+			try {
+				const remote = resendDomains ? await resendDomains() : [];
+				return new Set(remote.filter((d) => d.receivingEnabled).map((d) => key(d.name)));
+			} catch {
+				return new Set();
+			}
+		};
+		const mark = (domain: ProviderDomain, ok: Set<string>): ProviderDomain => ({
+			...domain,
+			receivingEnabled: ok.has(key(domain.name))
+		});
+		return {
+			...provider,
+			async listDomains() {
+				const ok = await receivable();
+				return (await provider.listDomains()).map((domain) => mark(domain, ok));
+			},
+			async getDomain(id: string) {
+				const ok = await receivable();
+				return mark(await provider.getDomain(id), ok);
+			}
+		};
+	}
 
 	const routed = new Set(parseMailDomains(cloudflareDomains));
 	const adjust = (domain: ProviderDomain): ProviderDomain => ({

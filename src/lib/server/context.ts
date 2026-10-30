@@ -120,8 +120,19 @@ export function getEmailProvider(platform: PlatformLike): EmailProvider {
 	return withInbound(
 		buildProvider(outbound, platform, true),
 		getInboundProviderKind(platform),
-		platform?.env.CLOUDFLARE_MAIL_DOMAINS
+		platform?.env.CLOUDFLARE_MAIL_DOMAINS,
+		resendReceivingLookup(platform, outbound)
 	);
+}
+
+/**
+ * When Resend delivers inbound mail but another service lists the domains,
+ * Resend is asked which domains it can receive for. Unavailable without an API key.
+ */
+function resendReceivingLookup(platform: PlatformLike, lister: EmailProviderKind) {
+	const apiKey = platform?.env.RESEND_API_KEY;
+	if (lister === 'resend' || getInboundProviderKind(platform) !== 'resend' || !apiKey) return undefined;
+	return () => createResendProvider(apiKey).listDomains();
 }
 
 /**
@@ -135,7 +146,8 @@ export function getDomainProvider(platform: PlatformLike): EmailProvider {
 	return withInbound(
 		outbound ? base : withoutSending(base),
 		getInboundProviderKind(platform),
-		platform?.env.CLOUDFLARE_MAIL_DOMAINS
+		platform?.env.CLOUDFLARE_MAIL_DOMAINS,
+		resendReceivingLookup(platform, kind)
 	);
 }
 
